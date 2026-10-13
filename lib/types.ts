@@ -18,6 +18,7 @@ export interface AuthUser {
 export interface SessionResponse {
   message: string;
   accessToken: string;
+  tabContext: string;
   user: AuthUser;
 }
 

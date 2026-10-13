@@ -1,20 +1,37 @@
 /**
- * Per-tab session context.
+ * Per-tab session context and tab isolation.
  *
- * The backend's refresh token is a single httpOnly cookie, which the browser
- * shares across every tab and which JavaScript cannot read. Nothing here can
- * isolate sessions on its own — what it records is which tab established one, so
- * that a genuinely new tab does not silently inherit the browser-wide cookie.
+ * The backend associates each session with a server-generated tabContext UUID.
+ * The refresh token is stored in an httpOnly cookie named `refresh_<tabContext>`,
+ * and requests to /api/auth/refresh and /api/auth/logout require the `X-Tab-Context` header.
+ *
+ * sessionStorage is scoped per tab, but browsers copy sessionStorage when a tab is duplicated.
+ * Web Locks ensure only one active tab can hold a given tabContext lock.
+ * If a duplicated tab detects the lock is already held, it drops the copied context.
  *
  * Every function is browser-only and must not run during render.
  */
-const TAB_ID_KEY = "educore.tabId";
+
+const TAB_CONTEXT_KEY = "educore.tabContext";
 const TAB_SESSION_KEY = "educore.tabSession";
 const TAB_USER_KEY = "educore.tabUser";
 
+let releaseLockFn: (() => void) | null = null;
+
+function hasWindow(): boolean {
+  return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+}
+
+/** The server-provided tabContext for this tab. */
+export function getTabContext(): string | null {
+  if (!hasWindow()) return null;
+  return window.sessionStorage.getItem(TAB_CONTEXT_KEY);
+}
+
 /** True when this tab itself signed in or restored a session. */
 export function tabHasSession(): boolean {
-  return window.sessionStorage.getItem(TAB_SESSION_KEY) === "1";
+  if (!hasWindow()) return false;
+  return !!getTabContext() && window.sessionStorage.getItem(TAB_SESSION_KEY) === "1";
 }
 
 /**
@@ -22,61 +39,81 @@ export function tabHasSession(): boolean {
  * that returns a different account can be refused rather than adopted.
  */
 export function tabUserId(): string | null {
+  if (!hasWindow()) return null;
   return window.sessionStorage.getItem(TAB_USER_KEY);
 }
 
-/** Records which account this tab holds, minting a tab id if it has none. */
-export function markTabSession(userId: string): void {
-  const session = window.sessionStorage;
-
-  if (!session.getItem(TAB_ID_KEY)) {
-    session.setItem(TAB_ID_KEY, crypto.randomUUID());
-  }
-
-  session.setItem(TAB_USER_KEY, userId);
-  session.setItem(TAB_SESSION_KEY, "1");
+/** Records which account and server tabContext this tab holds. */
+export async function setTabSession(tabContext: string, userId: string): Promise<void> {
+  if (!hasWindow()) return;
+  window.sessionStorage.setItem(TAB_CONTEXT_KEY, tabContext);
+  window.sessionStorage.setItem(TAB_USER_KEY, userId);
+  window.sessionStorage.setItem(TAB_SESSION_KEY, "1");
+  await holdTabLock(tabContext);
 }
 
+export const markTabSession = setTabSession;
+
 export function clearTabContext(): void {
-  window.sessionStorage.removeItem(TAB_ID_KEY);
-  window.sessionStorage.removeItem(TAB_SESSION_KEY);
+  if (!hasWindow()) return;
+  if (releaseLockFn) {
+    releaseLockFn();
+    releaseLockFn = null;
+  }
+  window.sessionStorage.removeItem(TAB_CONTEXT_KEY);
   window.sessionStorage.removeItem(TAB_USER_KEY);
+  window.sessionStorage.removeItem(TAB_SESSION_KEY);
+}
+
+function holdTabLock(context: string): Promise<boolean> {
+  if (typeof window === "undefined" || !navigator?.locks) {
+    return Promise.resolve(true);
+  }
+
+  // Release any previously held lock before acquiring a new one
+  if (releaseLockFn) {
+    releaseLockFn();
+    releaseLockFn = null;
+  }
+
+  return new Promise<boolean>((resolve) => {
+    navigator.locks.request(
+      `educore:tab:${context}`,
+      { ifAvailable: true },
+      async (lock) => {
+        if (!lock) {
+          resolve(false);
+          return;
+        }
+
+        resolve(true);
+
+        await new Promise<void>((onRelease) => {
+          releaseLockFn = onRelease;
+        });
+      }
+    );
+  });
 }
 
 /**
- * Verifies the stored tab id is not already live in another tab.
+ * Verifies the stored tabContext is not already live in another tab.
  *
  * A tab created by "Duplicate tab" starts with a copy of sessionStorage,
- * including the id and the session marker, so the copy would otherwise rotate
- * the original's refresh token and revoke it. The copy cannot hold the same lock
- * name, so it is detected here, drops the inherited context and starts fresh.
- *
- * Shortcut: no Web Locks implementation means no duplicate detection, and a
- * duplicated tab is then treated as the original.
+ * including the tabContext and the session marker, so the copy would otherwise
+ * rotate the original's refresh token and revoke it. The copy cannot acquire
+ * the same Web Lock, so it is detected here, drops the inherited context and starts fresh.
  */
-export async function ensureTabContext(): Promise<void> {
-  const id = window.sessionStorage.getItem(TAB_ID_KEY);
-  if (!id) return;
+export async function ensureTabContext(): Promise<boolean> {
+  if (!hasWindow()) return false;
+  const context = getTabContext();
+  if (!context) return false;
 
-  if (!(await isTabIdFree(id))) {
+  const acquired = await holdTabLock(context);
+  if (!acquired) {
     clearTabContext();
-    return;
+    return false;
   }
 
-  holdTabId(id);
-}
-
-async function isTabIdFree(id: string): Promise<boolean> {
-  if (!navigator.locks) return true;
-
-  const { held } = await navigator.locks.query();
-
-  return !held?.some((lock) => lock.name === id);
-}
-
-function holdTabId(id: string): void {
-  if (!navigator.locks) return;
-
-  // Never settles, so the lock is held until the page unloads.
-  void navigator.locks.request(id, { ifAvailable: true }, () => new Promise(() => {}));
+  return true;
 }

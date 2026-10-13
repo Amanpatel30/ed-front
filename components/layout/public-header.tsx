@@ -22,15 +22,14 @@ import { cn } from "cn";
 
 /**
  * Site-level navigation, distinct from the role-aware workspace menu in
- * `lib/navigation.ts`. Every target below exists. `/courses` is the
- * authenticated route: an anonymous visitor clicking it is handed to the login
- * page by the dashboard guard, which also carries the intended destination.
+ * `lib/navigation.ts`. Every target below exists. `/catalog` is the public
+ * catalogue: an anonymous visitor can browse courses without signing in.
  *
  * There is deliberately no sign-in or register item — those URLs stay reachable
  * without being advertised here.
  */
 const PUBLIC_NAV = [
-  { title: "Courses", href: "/courses" },
+  { title: "Courses", href: "/catalog" },
   { title: "About", href: "/about" },
   { title: "Contact", href: "/contact" },
 ];

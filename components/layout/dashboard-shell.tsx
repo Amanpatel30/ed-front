@@ -29,7 +29,14 @@
     }, [status, pathname, router]);
 
     if (status !== "authenticated" || !user) {
-      return <ShellSkeleton />;
+      return (
+        <>
+          <ShellSkeleton />
+          <div className="hidden" aria-hidden="true">
+            {children}
+          </div>
+        </>
+      );
     }
 
     return (

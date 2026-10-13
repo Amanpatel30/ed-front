@@ -10,6 +10,8 @@ import {
 import { credentialsReceived, signedOut } from "@/lib/features/auth/authSlice";
 import {
   clearTabContext,
+  getTabContext,
+  setTabSession,
   tabHasSession,
   tabUserId,
 } from "@/lib/features/auth/tab-context";
@@ -22,7 +24,7 @@ type DispatchAction = (action: UnknownAction) => unknown;
 /**
  * Requests are same-origin: `next.config.ts` proxies `/api/*` to the EduCore
  * origin. That is what makes the backend's httpOnly refresh cookie (scope
- * `/api/auth`, SameSite=Lax) usable, since the API sends no CORS headers.
+ * `/api/auth`, SameSite=Lax) usable.
  */
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: "/api",
@@ -34,6 +36,11 @@ const rawBaseQuery = fetchBaseQuery({
       headers.set("authorization", `Bearer ${token}`);
     }
 
+    const tabContext = getTabContext();
+    if (tabContext) {
+      headers.set("x-tab-context", tabContext);
+    }
+
     return headers;
   },
 });
@@ -41,27 +48,22 @@ const rawBaseQuery = fetchBaseQuery({
 const AUTH_ENDPOINTS = ["/auth/login", "/auth/refresh", "/auth/logout"];
 
 /**
- * Single-flight token rotation, shared by the page-load bootstrap and the 401
- * retry, so a tab has at most one refresh in flight.
- *
- * The backend revokes the presented refresh token on every rotation and clears
- * the cookie when a revoked one is presented, so two overlapping refreshes can
- * never both succeed. When they were issued from separate call sites, the loser
- * dispatched a sign-out that bounced the signed-in user through `/login` while
- * the winner restored the session.
+ * Single-flight token rotation per tab, shared by the page-load bootstrap and any 401
+ * retry, so a tab has at most one refresh in flight at a time.
+ * Each tab owns its own server tabContext and cookie refresh_<tabContext>, so tabs
+ * refresh independently without cross-tab locking.
  */
 let refreshInFlight: Promise<string | null> | null = null;
 
 export function refreshSession(dispatch: DispatchAction): Promise<string | null> {
-  // A refresh cookie shared by the browser is not a reason for this tab to adopt
-  // a session it never had.
+  // A tab without an established session does not attempt to refresh
   if (!tabHasSession()) {
     dispatch(signedOut());
     return Promise.resolve(null);
   }
 
   if (!refreshInFlight) {
-    refreshInFlight = withRefreshLock(() => refresh(dispatch)).finally(() => {
+    refreshInFlight = refresh(dispatch).finally(() => {
       refreshInFlight = null;
     });
   }
@@ -87,52 +89,43 @@ export function restoreSession(
 }
 
 /**
- * Serializes rotations across tabs: the cookie is browser-wide, so two tabs
- * refreshing at the same moment would present the same token and revoke each
- * other's session.
- */
-async function withRefreshLock(
-  task: () => Promise<string | null>
-): Promise<string | null> {
-  if (!navigator.locks) return task();
-
-  // LockGrantedCallback in the installed DOM types omits the promise branch the
-  // Web Locks API supports, so this result is typed one promise too deep.
-  const nested = navigator.locks.request<Promise<string | null>>(
-    "educore:refresh",
-    task
-  );
-
-  return await nested;
-}
-
-/**
- * Rotates the refresh cookie. A refusal means this tab is finished, so its
- * context goes too; a network failure says nothing about the session, so the
- * context is kept and a later reload can still restore it.
+ * Rotates the refresh cookie for this tab using its tabContext.
+ * A 401 refusal means this tab's session is expired/revoked, so its context is cleared;
+ * a network failure preserves context so a later retry can still succeed.
  */
 async function refresh(dispatch: DispatchAction): Promise<string | null> {
+  const tabContext = getTabContext();
+  if (!tabContext) {
+    clearTabContext();
+    return null;
+  }
+
   try {
     const response = await fetch("/api/auth/refresh", {
       method: "POST",
       credentials: "include",
+      headers: {
+        "x-tab-context": tabContext,
+      },
     });
 
     if (!response.ok) {
-      // Only a 401 is the API refusing the credential. Anything else is an
-      // outage, so the tab keeps its context and can restore once the API is back.
-      if (response.status === 401) clearTabContext();
+      if (response.status === 401) {
+        clearTabContext();
+      }
       return null;
     }
 
     const session = (await response.json()) as SessionResponse;
 
-    // The cookie is browser-wide, so if another tab signed in as someone else
-    // this rotation returns that account. Refuse it rather than adopt it.
     const expected = tabUserId();
     if (expected && session.user.id !== expected) {
       clearTabContext();
       return null;
+    }
+
+    if (session.tabContext) {
+      await setTabSession(session.tabContext, session.user.id);
     }
 
     dispatch(

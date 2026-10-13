@@ -29,27 +29,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useCourseCatalogQuery } from "@/lib/api/coursesApi";
+import { usePublicCoursesQuery } from "@/lib/api/coursesApi";
 import { normalizeApiError } from "@/lib/api/error";
 import { useMyEnrollmentsQuery } from "@/lib/api/enrollmentsApi";
 import { useAppSelector } from "@/lib/hooks";
-import { PERMISSIONS } from "@/lib/roles";
 import type { Course } from "@/lib/types";
 
 const PAGE_SIZE = 12;
 
 /**
- * The catalogue as a student sees it: everything open for enrollment. Students
- * enroll from here; administrators browse the same list and manage it on the
- * courses screen, which is why the enroll action is not offered to them.
+ * Public course catalogue. Anonymous visitors can freely browse open courses
+ * without signing in or presenting an access token.
+ * Authenticated students can enroll directly from here.
  */
-export default function CatalogPage() {
+export default function PublicCatalogPage() {
   const role = useAppSelector((state) => state.auth.user?.role);
   const isStudent = role === "STUDENT";
 
-  const coursesQuery = useCourseCatalogQuery();
-  // A student's own enrollments carry the open semesters, and only students hold
-  // OWN_ENROLLMENT_VIEW.
+  const coursesQuery = usePublicCoursesQuery();
+  // A student's own enrollments carry the open semesters for self-enrollment.
   const myEnrollmentsQuery = useMyEnrollmentsQuery(isStudent ? undefined : skipToken);
 
   const [search, setSearch] = useState("");
@@ -102,26 +100,24 @@ export default function CatalogPage() {
   const filtersActive = term !== "" || department !== "all";
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 space-y-6">
       <PageHeader
         title="Course catalog"
         description={
           isStudent
             ? "Courses open for enrollment this year. Enrolling is only possible while the semester is open and the course still has a seat."
-            : "Read-only view of the catalog students see. Courses are created and edited on the Courses screen."
+            : "Browse courses currently offered at EduCore. Sign in to your student account to enroll."
         }
         actions={
-          isStudent ? null : (
+          role && !isStudent ? (
             <Link
-  href="/courses"
-  className={buttonVariants({ variant: "outline" })}
->
-  <BookOpen aria-hidden />
-  Manage courses
-</Link>
-            
-
-          )
+              href="/courses"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <BookOpen aria-hidden />
+              Manage courses
+            </Link>
+          ) : null
         }
       />
 
@@ -131,7 +127,6 @@ export default function CatalogPage() {
         isEmpty={coursesQuery.isSuccess && courses.length === 0}
         emptyTitle="No course is open"
         emptyDescription="Nothing in the catalog is currently accepting students."
-        requiredPermission={PERMISSIONS.catalog}
         onRetry={coursesQuery.refetch}
         loadingRows={6}
       >
@@ -278,3 +273,4 @@ export default function CatalogPage() {
     </div>
   );
 }
+

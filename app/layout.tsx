@@ -26,7 +26,11 @@ export const metadata: Metadata = {
     "EduCore education management: courses, semesters and enrollment for super admins, admins, instructors and students.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"

@@ -11,6 +11,27 @@ import type {
 
 export const coursesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
+    /** GET /api/courses/public — public read-only courses catalogue (no auth required). */
+    publicCourses: build.query<CoursesResponse, PageParams | void>({
+      query: (params) => ({ url: "/courses/public", params: params ?? undefined }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.courses.map((course) => ({
+                type: "Course" as const,
+                id: course.id,
+              })),
+              { type: "Course" as const, id: "LIST" },
+            ]
+          : [{ type: "Course" as const, id: "LIST" }],
+    }),
+
+    /** GET /api/courses/public/:id — public course details (no auth required). */
+    publicCourseById: build.query<CourseResponse, string>({
+      query: (id) => `/courses/public/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "Course", id }],
+    }),
+
     /** GET /api/courses/catalog — requires COURSE_CATALOG_VIEW. */
     courseCatalog: build.query<CoursesResponse, PageParams | void>({
       query: (params) => ({ url: "/courses/catalog", params: params ?? undefined }),
@@ -117,6 +138,8 @@ export const coursesApi = baseApi.injectEndpoints({
 });
 
 export const {
+  usePublicCoursesQuery,
+  usePublicCourseByIdQuery,
   useCourseCatalogQuery,
   useCourseByIdQuery,
   useAssignedCoursesQuery,

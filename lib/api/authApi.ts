@@ -2,7 +2,8 @@ import { baseApi } from "@/lib/api/baseApi";
 import { credentialsReceived, signedOut } from "@/lib/features/auth/authSlice";
 import {
   clearTabContext,
-  markTabSession,
+  getTabContext,
+  setTabSession,
 } from "@/lib/features/auth/tab-context";
 import type { RegisterInput, RegisterResponse, SessionResponse } from "@/lib/types";
 
@@ -19,8 +20,8 @@ export const authApi = baseApi.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
 
-          // This tab now owns a session; see lib/features/auth/tab-context.ts.
-          markTabSession(data.user.id);
+          // Bind this tab to the server-generated tabContext and acquire its Web Lock
+          await setTabSession(data.tabContext, data.user.id);
 
           dispatch(
             credentialsReceived({
@@ -37,33 +38,33 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * Public Student registration. No role is sent — the API owns the role — so
-     * this cannot create an administrator, instructor or super admin.
-     *
-     * Unverified: `API_CONTRACT.md` documents no registration route, so the path
-     * below is the one assumption in this flow and the single place to change it.
-     * `POST /api/users` is not an option: it needs an admin token, a client-sent
-     * role, and a `student` profile whose `studentCode` and `admissionDate` are
-     * institution-issued, so the backend has to generate them for a public
-     * signup.
+     * Public Student registration. Creates user account with role STUDENT.
+     * No student profile or enrollments are created yet.
      */
     register: build.mutation<RegisterResponse, RegisterInput>({
       query: (body) => ({ url: "/auth/register", method: "POST", body }),
     }),
 
     /**
-     * The API revokes the session behind the refresh cookie, and the browser
-     * shares that cookie across tabs, so this ends the session for the whole
-     * browser. Only this tab's own state and context are cleared here.
+     * The API revokes the specific session behind the tab's refresh_<tabContext> cookie.
+     * Passes the X-Tab-Context header so only this tab's session is revoked, leaving
+     * any other concurrent tabs intact.
      */
     logout: build.mutation<{ message: string }, void>({
-      query: () => ({ url: "/auth/logout", method: "POST" }),
+      query: () => {
+        const tabContext = getTabContext();
+        return {
+          url: "/auth/logout",
+          method: "POST",
+          headers: tabContext ? { "X-Tab-Context": tabContext } : undefined,
+        };
+      },
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
         } finally {
           // Clear even when the API call fails, so the UI never keeps a session
-          // the user asked to end. The cookie is cleared server-side.
+          // the user asked to end.
           clearTabContext();
           dispatch(signedOut());
           dispatch(baseApi.util.resetApiState());

@@ -1,9 +1,12 @@
 "use client";
 
+export const instant = false;
+
 import { Pencil, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { departmentOptionsFromCourses } from "@/components/courses/department-options";
 import { CourseFormDialog } from "@/components/courses/course-form-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { TablePagination } from "@/components/shared/pagination";
@@ -41,15 +44,10 @@ const PAGE_SIZE = 10;
  * therefore not a column or a filter here; the edit dialog is where a course is
  * retired, and the course detail page is the only place an inactive one can
  * still be seen.
- *
- * shortcut: search and the department filter narrow the loaded rows because the
- * API accepts no filter parameters. Move both to the API once the catalogue
- * outgrows a few hundred rows.
  */
 export default function CoursesPage() {
   const coursesQuery = useCourseCatalogQuery();
-  // The picker needs every department, including ones no course uses yet, so it
-  // reads the directory rather than deriving options from the catalogue.
+  // Directory of departments for the course editor dialog if permitted.
   const departmentsQuery = useDepartmentsQuery({ isActive: true });
 
   const [search, setSearch] = useState("");
@@ -57,23 +55,18 @@ export default function CoursesPage() {
   const [page, setPage] = useState(1);
   const [formCourse, setFormCourse] = useState<Course | "new" | null>(null);
 
-  // Which grant is missing differs by role — an instructor cannot read the
-  // catalogue, a student can but cannot read the department directory.
   const courseError = normalizeApiError(coursesQuery.error);
-  const departmentError = normalizeApiError(departmentsQuery.error);
-  const error = courseError ?? departmentError;
-  const requiredPermission = courseError
-    ? PERMISSIONS.catalog
-    : PERMISSIONS.department;
-  const isLoading = coursesQuery.isLoading || departmentsQuery.isLoading;
+  const error = courseError;
+  const requiredPermission = PERMISSIONS.catalog;
+  const isLoading = coursesQuery.isLoading;
 
   const courses = coursesQuery.data?.courses ?? [];
-  const departmentOptions: FieldOption[] = (
-    departmentsQuery.data?.departments ?? []
-  ).map((department) => ({
-    value: department.id,
-    label: `${department.name} (${department.code})`,
-  }));
+  const departmentOptions: FieldOption[] = departmentsQuery.data?.departments?.length
+    ? departmentsQuery.data.departments.map((dept) => ({
+        value: dept.id,
+        label: `${dept.name} (${dept.code})`,
+      }))
+    : departmentOptionsFromCourses(courses);
 
   const term = search.trim().toLowerCase();
   const filtered = courses.filter((course) => {
