@@ -22,9 +22,6 @@ import type { Course } from "@/lib/types";
  * Self-enrollment for a student. The API decides the outcome — capacity, an
  * existing enrollment in the same course and semester, and the semester status
  * are all enforced there — so the dialog reports whatever it refuses with.
- *
- * The semester choices come from the student's own enrollments: listing
- * semesters needs SEMESTER_OPEN_CLOSE, which a student does not hold.
  */
 export function SelfEnrollDialog({
   course,
@@ -36,10 +33,11 @@ export function SelfEnrollDialog({
   onClose: () => void;
 }) {
   const [createMyEnrollment, createState] = useCreateMyEnrollmentMutation();
-  const [semesterId, setSemesterId] = useState<string | null>(
-    semesters.length === 1 ? semesters[0].value : null
-  );
+  const [selectedSemesterId, setSelectedSemesterId] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
+
+  const semesterId =
+    selectedSemesterId ?? (semesters.length > 0 ? semesters[0].value : null);
 
   const apiError = normalizeApiError(createState.error);
 
@@ -91,13 +89,17 @@ export function SelfEnrollDialog({
             id="self-enroll-semester"
             label="Semester"
             value={semesterId}
-            onValueChange={setSemesterId}
+            onValueChange={setSelectedSemesterId}
             options={semesters}
             error={error}
             placeholder={
               semesters.length === 0 ? "No open semester available" : "Select a semester"
             }
-            hint="Open semesters taken from your own enrollments. Listing every semester needs the SEMESTER_OPEN_CLOSE permission, which a student does not have."
+            hint={
+              semesters.length === 0
+                ? "There are currently no open semesters available for enrollment."
+                : "Select the semester you wish to enroll for."
+            }
             disabled={semesters.length === 0}
             required
           />

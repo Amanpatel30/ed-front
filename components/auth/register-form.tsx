@@ -84,45 +84,66 @@ export function RegisterForm() {
 
   if (created) {
     return (
-      <div className="space-y-4 rounded-xl border border-border bg-card p-6 text-center">
-        <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-accent">
-          <CircleCheck className="size-5 text-accent-foreground" aria-hidden />
-        </div>
-
-        <div className="space-y-1">
-          <p className="font-medium">Your student account was created</p>
+      <div className="space-y-6">
+        <div className="space-y-2 text-center">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
+            Account created
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Sign in as {email.trim()} to reach your workspace.
+            Sign in to start exploring courses and reach your workspace.
           </p>
         </div>
 
-        <Link href="/login" className={buttonVariants()}>
-          Go to sign in
-        </Link>
+        <div className="space-y-4 rounded-xl border border-border bg-card p-6 text-center">
+          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-accent">
+            <CircleCheck className="size-5 text-accent-foreground" aria-hidden />
+          </div>
+
+          <div className="space-y-1">
+            <p className="font-medium">Your account was created</p>
+            <p className="text-sm text-muted-foreground">
+              Sign in as {email.trim()} to reach your workspace.
+            </p>
+          </div>
+
+          <Link href="/login" className={buttonVariants()}>
+            Go to sign in
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
-      {apiError ? (
-        <Alert variant="destructive" role="alert">
-          <AlertTitle>Could not create your account</AlertTitle>
-          <AlertDescription>{apiError.message}</AlertDescription>
-        </Alert>
-      ) : null}
+    <div className="space-y-6">
+      <div className="space-y-2 text-center">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          Create an account
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Enter your details to get started with EduCore.
+        </p>
+      </div>
 
-      <TextField
-        id="name"
-        label="Full name"
-        value={name}
-        onValueChange={setName}
-        error={fieldErrors.name}
-        autoComplete="name"
-        required
-        autoFocus
-        placeholder="Student One"
-      />
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+        {apiError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Could not create your account</AlertTitle>
+            <AlertDescription>{apiError.message}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <TextField
+          id="name"
+          label="Full name"
+          value={name}
+          onValueChange={setName}
+          error={fieldErrors.name}
+          autoComplete="name"
+          required
+          autoFocus
+          placeholder="Alex Morgan"
+        />
 
       <TextField
         id="email"
@@ -171,5 +192,6 @@ export function RegisterForm() {
         )}
       </Button>
     </form>
+  </div>
   );
 }

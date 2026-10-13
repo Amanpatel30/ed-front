@@ -8,6 +8,7 @@ import { TextField } from "@/components/shared/form-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useLoginMutation } from "@/lib/api/authApi";
 import { normalizeApiError } from "@/lib/api/error";
 import { useAppSelector } from "@/lib/hooks";
@@ -21,6 +22,7 @@ interface FieldErrors {
 
 export function LoginForm() {
   const router = useRouter();
+  const hydrated = useHydrated();
   const status = useAppSelector((state) => state.auth.status);
 
   const [email, setEmail] = useState("");
@@ -39,12 +41,12 @@ export function LoginForm() {
     }
   }, [status, router]);
 
-  // Restoration is still in flight, so the visitor is not yet known to be signed
-  // out — and must not be shown the form that a signed-in visitor would never see.
-  if (status === "initializing") return <FormPlaceholder />;
-
-  // The redirect above is already running; rendering the form would flash it.
-  if (status === "authenticated") return null;
+  // If an authenticated user navigates to /login, defer showing a placeholder
+  // and redirecting until after hydration so server and client initial render
+  // match structurally.
+  if (hydrated && status === "authenticated") {
+    return <FormPlaceholder />;
+  }
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();

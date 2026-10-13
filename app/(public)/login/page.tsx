@@ -31,7 +31,7 @@ export default function LoginPage() {
         <p className="mt-2 text-center text-sm text-muted-foreground">
           No account yet?{" "}
           <Link href="/register" className="hover:text-foreground">
-            Create student account
+            Create an account
           </Link>
         </p>
       </div>

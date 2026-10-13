@@ -1,8 +1,9 @@
 "use client";
 
 import { skipToken } from "@reduxjs/toolkit/query/react";
-import { BookOpen, Search, X } from "lucide-react";
+import { BookOpen, Check, Search, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { departmentOptionsFromCourses } from "@/components/courses/department-options";
@@ -11,6 +12,7 @@ import type { FieldOption } from "@/components/shared/form-fields";
 import { PageHeader } from "@/components/shared/page-header";
 import { TablePagination } from "@/components/shared/pagination";
 import { QueryState } from "@/components/shared/query-states";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,7 @@ import {
 import { usePublicCoursesQuery } from "@/lib/api/coursesApi";
 import { normalizeApiError } from "@/lib/api/error";
 import { useMyEnrollmentsQuery } from "@/lib/api/enrollmentsApi";
+import { useSemestersQuery } from "@/lib/api/semestersApi";
 import { useAppSelector } from "@/lib/hooks";
 import type { Course } from "@/lib/types";
 
@@ -43,11 +46,15 @@ const PAGE_SIZE = 12;
  * Authenticated students can enroll directly from here.
  */
 export default function PublicCatalogPage() {
-  const role = useAppSelector((state) => state.auth.user?.role);
-  const isStudent = role === "STUDENT";
+  const router = useRouter();
+  const user = useAppSelector((state) => state.auth.user);
+  const role = user?.role;
+  const isStudent = role?.toUpperCase() === "STUDENT";
+  const isAnonymous = !user;
+  const showActions = isAnonymous || isStudent;
 
   const coursesQuery = usePublicCoursesQuery();
-  // A student's own enrollments carry the open semesters for self-enrollment.
+  const semestersQuery = useSemestersQuery(user ? undefined : skipToken);
   const myEnrollmentsQuery = useMyEnrollmentsQuery(isStudent ? undefined : skipToken);
 
   const [search, setSearch] = useState("");
@@ -59,24 +66,40 @@ export default function PublicCatalogPage() {
   const courses = coursesQuery.data?.courses ?? [];
   const departmentOptions = departmentOptionsFromCourses(courses);
 
+  const openSemestersFromApi: FieldOption[] = (semestersQuery.data?.semesters ?? [])
+    .filter((semester) => semester.status === "OPEN")
+    .map((semester) => ({
+      value: semester.id,
+      label: `${semester.name} · ${semester.academicYear}`,
+    }));
+
   const myEnrollments = myEnrollmentsQuery.data?.enrollments ?? [];
+  const openSemestersFromEnrollments: FieldOption[] = myEnrollments.flatMap(
+    (enrollment) =>
+      enrollment.semester?.status === "OPEN"
+        ? [
+            {
+              value: enrollment.semesterId,
+              label: `${enrollment.semester.name} · ${enrollment.semester.academicYear}`,
+            },
+          ]
+        : []
+  );
+
   const openSemesters: FieldOption[] = [
     ...new Map(
-      myEnrollments.flatMap((enrollment) =>
-        enrollment.semester.status === "OPEN"
-          ? [
-              [
-                enrollment.semesterId,
-                {
-                  value: enrollment.semesterId,
-                  label: `${enrollment.semester.name} · ${enrollment.semester.academicYear}`,
-                },
-              ] as const,
-            ]
-          : []
-      )
+      [...openSemestersFromApi, ...openSemestersFromEnrollments].map((s) => [
+        s.value,
+        s,
+      ])
     ).values(),
   ];
+
+  const enrolledCourseIds = new Set(
+    myEnrollments
+      .filter((enrollment) => enrollment.status === "ACTIVE")
+      .map((enrollment) => String(enrollment.courseId || enrollment.course?.id))
+  );
 
   const term = search.trim().toLowerCase();
   const filtered = courses.filter((course) => {
@@ -207,43 +230,67 @@ export default function PublicCatalogPage() {
                       <TableHead>Department</TableHead>
                       <TableHead className="text-right">Credits</TableHead>
                       <TableHead className="text-right">Capacity</TableHead>
-                      {isStudent ? (
+                      {showActions ? (
                         <TableHead className="text-right">Actions</TableHead>
                       ) : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visible.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell className="font-mono text-xs">
-                          {course.code}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {course.name}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {course.department?.name ?? course.departmentId}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {course.credits}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {course.capacity}
-                        </TableCell>
-                        {isStudent ? (
-                          <TableCell>
-                            <div className="flex justify-end">
-                              <Button
-                                size="sm"
-                                onClick={() => setEnrolling(course)}
-                              >
-                                Enroll
-                              </Button>
-                            </div>
+                    {visible.map((course) => {
+                      const isEnrolled =
+                        isStudent && enrolledCourseIds.has(String(course.id));
+
+                      return (
+                        <TableRow key={course.id}>
+                          <TableCell className="font-mono text-xs">
+                            {course.code}
                           </TableCell>
-                        ) : null}
-                      </TableRow>
-                    ))}
+                          <TableCell className="font-medium">
+                            {course.name}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {course.department?.name ?? course.departmentId}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {course.credits}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {course.capacity}
+                          </TableCell>
+                          {showActions ? (
+                            <TableCell>
+                              <div className="flex justify-end">
+                                {isEnrolled ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="gap-1 text-xs"
+                                  >
+                                    <Check
+                                      className="size-3 text-emerald-600"
+                                      aria-hidden
+                                    />
+                                    Enrolled
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      if (isAnonymous) {
+                                        router.push("/login?next=/catalog");
+                                      } else if (isStudent) {
+                                        setEnrolling(course);
+                                      }
+                                    }}
+                                  >
+                                    Enroll
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
