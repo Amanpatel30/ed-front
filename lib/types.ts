@@ -54,12 +54,43 @@ export interface PageParams {
   limit?: number;
 }
 
+export interface TableQueryParams extends PageParams {
+  search?: string;
+  sort?: string;
+  order?: "asc" | "desc";
+  [key: string]: unknown;
+}
+
 /** Present on list responses only when pagination was requested. */
 export interface PageMeta {
   total?: number;
   page?: number;
   limit?: number;
   totalPages?: number;
+}
+
+export interface CourseListParams extends PageParams {
+  search?: string;
+  departmentId?: string;
+  isActive?: boolean | string;
+  sort?: string;
+  order?: "asc" | "desc";
+}
+
+export interface SemesterListParams extends PageParams {
+  search?: string;
+  status?: SemesterStatus | string;
+  sort?: string;
+  order?: "asc" | "desc";
+}
+
+export interface EnrollmentListParams extends PageParams {
+  search?: string;
+  status?: EnrollmentStatus | string;
+  semesterId?: string;
+  courseId?: string;
+  sort?: string;
+  order?: "asc" | "desc";
 }
 
 /* ------------------------------------------------------------------ courses */

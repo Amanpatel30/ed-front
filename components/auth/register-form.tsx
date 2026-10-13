@@ -1,14 +1,16 @@
 "use client";
 
-import { CircleCheck, LoaderCircle } from "lucide-react";
-import Link from "next/link";
+import { LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { TextField } from "@/components/shared/form-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { useRegisterMutation } from "@/lib/api/authApi";
+import { Button } from "@/components/ui/button";
+import { useLoginMutation, useRegisterMutation } from "@/lib/api/authApi";
 import { normalizeApiError } from "@/lib/api/error";
+import { HOME_ROUTE } from "@/lib/navigation";
 import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH } from "@/lib/validation";
 
 interface FieldErrors {
@@ -19,21 +21,25 @@ interface FieldErrors {
 }
 
 /**
- * Public Student signup. The form asks for no role and no institution-issued
- * values (student code, admission date, department), because the API is the only
- * party that can decide them — see the `register` endpoint in `authApi`.
+ * Public Student signup.
+ * Upon successful registration, displays a toast message, automatically
+ * signs the new user in, and redirects directly to the dashboard.
  */
 export function RegisterForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [created, setCreated] = useState(false);
 
-  const [register, { isLoading, error }] = useRegisterMutation();
+  const [register, { isLoading: isRegistering, error: registerError }] =
+    useRegisterMutation();
+  const [login, { isLoading: isLoggingIn, error: loginError }] =
+    useLoginMutation();
 
-  const apiError = normalizeApiError(error);
+  const isPending = isRegistering || isLoggingIn;
+  const apiError = normalizeApiError(registerError || loginError);
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,43 +81,21 @@ export function RegisterForm() {
         password,
       }).unwrap();
 
-      // Only reached once the API has confirmed the account.
-      setCreated(true);
-    } catch {
-      // Reported through the mutation's error state above the form.
+      toast.success("Account created successfully! Welcome to EduCore.");
+
+      // Automatically sign in the user and redirect to dashboard
+      await login({
+        email: trimmedEmail,
+        password,
+      }).unwrap();
+
+      router.replace(HOME_ROUTE);
+    } catch (err) {
+      const normalized = normalizeApiError(err);
+      if (normalized?.message) {
+        toast.error(normalized.message);
+      }
     }
-  }
-
-  if (created) {
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2 text-center">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Account created
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Sign in to start exploring courses and reach your workspace.
-          </p>
-        </div>
-
-        <div className="space-y-4 rounded-xl border border-border bg-card p-6 text-center">
-          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-accent">
-            <CircleCheck className="size-5 text-accent-foreground" aria-hidden />
-          </div>
-
-          <div className="space-y-1">
-            <p className="font-medium">Your account was created</p>
-            <p className="text-sm text-muted-foreground">
-              Sign in as {email.trim()} to reach your workspace.
-            </p>
-          </div>
-
-          <Link href="/login" className={buttonVariants()}>
-            Go to sign in
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -143,55 +127,59 @@ export function RegisterForm() {
           required
           autoFocus
           placeholder="Alex Morgan"
+          disabled={isPending}
         />
 
-      <TextField
-        id="email"
-        label="Email address"
-        type="email"
-        value={email}
-        onValueChange={setEmail}
-        error={fieldErrors.email}
-        autoComplete="email"
-        inputMode="email"
-        required
-        placeholder="you@example.com"
-      />
+        <TextField
+          id="email"
+          label="Email address"
+          type="email"
+          value={email}
+          onValueChange={setEmail}
+          error={fieldErrors.email}
+          autoComplete="email"
+          inputMode="email"
+          required
+          placeholder="you@example.com"
+          disabled={isPending}
+        />
 
-      <TextField
-        id="password"
-        label="Password"
-        type="password"
-        value={password}
-        onValueChange={setPassword}
-        error={fieldErrors.password}
-        hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
-        autoComplete="new-password"
-        required
-      />
+        <TextField
+          id="password"
+          label="Password"
+          type="password"
+          value={password}
+          onValueChange={setPassword}
+          error={fieldErrors.password}
+          hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+          autoComplete="new-password"
+          required
+          disabled={isPending}
+        />
 
-      <TextField
-        id="confirmPassword"
-        label="Confirm password"
-        type="password"
-        value={confirmPassword}
-        onValueChange={setConfirmPassword}
-        error={fieldErrors.confirmPassword}
-        autoComplete="new-password"
-        required
-      />
+        <TextField
+          id="confirmPassword"
+          label="Confirm password"
+          type="password"
+          value={confirmPassword}
+          onValueChange={setConfirmPassword}
+          error={fieldErrors.confirmPassword}
+          autoComplete="new-password"
+          required
+          disabled={isPending}
+        />
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? (
-          <>
-            <LoaderCircle className="animate-spin" aria-hidden />
-            Creating account…
-          </>
-        ) : (
-          "Create account"
-        )}
-      </Button>
-    </form>
-  </div>
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? (
+            <>
+              <LoaderCircle className="animate-spin" aria-hidden />
+              {isLoggingIn ? "Signing you in…" : "Creating account…"}
+            </>
+          ) : (
+            "Create account"
+          )}
+        </Button>
+      </form>
+    </div>
   );
 }

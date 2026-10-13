@@ -10,6 +10,7 @@ import {
 import { credentialsReceived, signedOut } from "@/lib/features/auth/authSlice";
 import {
   clearTabContext,
+  ensureTabContext,
   getTabContext,
   setTabSession,
   tabHasSession,
@@ -45,7 +46,12 @@ const rawBaseQuery = fetchBaseQuery({
   },
 });
 
-const AUTH_ENDPOINTS = ["/auth/login", "/auth/refresh", "/auth/logout"];
+const AUTH_ENDPOINTS = [
+  "/auth/login",
+  "/auth/refresh",
+  "/auth/logout",
+  "/auth/register",
+];
 
 /**
  * Single-flight token rotation per tab, shared by the page-load bootstrap and any 401
@@ -54,6 +60,7 @@ const AUTH_ENDPOINTS = ["/auth/login", "/auth/refresh", "/auth/logout"];
  * refresh independently without cross-tab locking.
  */
 let refreshInFlight: Promise<string | null> | null = null;
+let restoreInFlight: Promise<string | null> | null = null;
 
 export function refreshSession(dispatch: DispatchAction): Promise<string | null> {
   // A tab without an established session does not attempt to refresh
@@ -75,9 +82,9 @@ export function refreshSession(dispatch: DispatchAction): Promise<string | null>
 }
 
 /**
- * Restores this tab's session after a page load. Keeps an access token that is
- * already in memory, so a repeated bootstrap — React StrictMode, or the root
- * Suspense boundary remounting — cannot rotate the token a second time.
+ * Restores this tab's session after a page load. Ensures Web Lock ownership
+ * and rotates the refresh cookie once. Deduplicates concurrent callers so
+ * page-load bootstrap and any parallel API queries share the single refresh request.
  */
 export function restoreSession(
   dispatch: DispatchAction,
@@ -85,7 +92,29 @@ export function restoreSession(
 ): Promise<string | null> {
   const { accessToken } = getState().auth;
 
-  return accessToken ? Promise.resolve(accessToken) : refreshSession(dispatch);
+  if (accessToken) {
+    return Promise.resolve(accessToken);
+  }
+
+  if (!tabHasSession()) {
+    dispatch(signedOut());
+    return Promise.resolve(null);
+  }
+
+  if (!restoreInFlight) {
+    restoreInFlight = (async () => {
+      const isOwner = await ensureTabContext();
+      if (!isOwner) {
+        dispatch(signedOut());
+        return null;
+      }
+      return refreshSession(dispatch);
+    })().finally(() => {
+      restoreInFlight = null;
+    });
+  }
+
+  return restoreInFlight;
 }
 
 /**
@@ -151,13 +180,24 @@ const baseQueryWithReauth: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
-  let result = await rawBaseQuery(args, api, extraOptions);
-
   const url = typeof args === "string" ? args : args.url;
   const isAuthEndpoint = AUTH_ENDPOINTS.some((path) => url.startsWith(path));
 
+  // If this tab has an established session but the in-memory access token is missing
+  // (e.g. initial page reload bootstrap) or a restore is currently in flight,
+  // wait for session restoration before sending the request so we don't fire
+  // an unauthenticated request that is guaranteed to 401.
+  if (!isAuthEndpoint) {
+    const currentState = api.getState() as AuthAwareState;
+    if (!currentState.auth.accessToken && tabHasSession()) {
+      await restoreSession(api.dispatch, () => api.getState() as AuthAwareState);
+    }
+  }
+
+  let result = await rawBaseQuery(args, api, extraOptions);
+
   if (result.error?.status === 401 && !isAuthEndpoint) {
-    // The token was rejected, so it must be rotated even though one is in memory.
+    // The token was rejected (expired in flight), so rotate once and replay.
     const token = await refreshSession(api.dispatch);
 
     if (token) {

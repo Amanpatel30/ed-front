@@ -1,19 +1,22 @@
 "use client";
 
-import { Pencil, Plus, Search, UserMinus, X } from "lucide-react";
-import { useState } from "react";
+import { Pencil, Plus, UserMinus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { EnrollmentFormDialog } from "@/components/enrollments/enrollment-form-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { FieldOption } from "@/components/shared/form-fields";
 import { PageHeader } from "@/components/shared/page-header";
-import { TablePagination } from "@/components/shared/pagination";
-import { QueryState } from "@/components/shared/query-states";
+import {
+  DataTable,
+  DataTableToolbar,
+  exportToCsv,
+  type TableColumn,
+  useTableQuery,
+} from "@/components/shared/data-table";
 import { EnrollmentStatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -21,14 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useCourseCatalogQuery } from "@/lib/api/coursesApi";
 import { normalizeApiError } from "@/lib/api/error";
 import {
@@ -37,30 +32,40 @@ import {
 } from "@/lib/api/enrollmentsApi";
 import { useSemestersQuery } from "@/lib/api/semestersApi";
 import { formatDate } from "@/lib/format";
-import { PERMISSIONS } from "@/lib/roles";
 import type { Enrollment } from "@/lib/types";
-
-const PAGE_SIZE = 15;
 
 /**
  * Every enrollment in the institution, for ADMIN and SUPER_ADMIN.
- *
- * The student picker is built from the enrollments already on screen because the
- * API has no student directory. See the form dialog for the limit that implies.
- *
- * shortcut: search and the two filters narrow the loaded rows because the API
- * accepts no filter parameters.
+ * Upgraded with production-ready DataTable, server-side pagination, search, and filtering.
  */
 export default function EnrollmentsPage() {
-  const enrollmentsQuery = useEnrollmentsQuery();
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    search,
+    setSearch,
+    sortBy,
+    sortOrder,
+    handleSort,
+    filters,
+    setFilter,
+    resetFilters,
+    isFiltered,
+    queryArgs,
+  } = useTableQuery({
+    initialPageSize: 15,
+    initialSortBy: "createdAt",
+    initialSortOrder: "desc",
+    initialFilters: { status: "ACTIVE", semesterId: "all" },
+  });
+
+  const enrollmentsQuery = useEnrollmentsQuery(queryArgs);
   const coursesQuery = useCourseCatalogQuery();
   const semestersQuery = useSemestersQuery();
   const [dropEnrollment, dropState] = useDropEnrollmentMutation();
 
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("ACTIVE");
-  const [semesterId, setSemesterId] = useState("all");
-  const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Enrollment | "new" | null>(null);
   const [dropping, setDropping] = useState<Enrollment | null>(null);
 
@@ -68,10 +73,12 @@ export default function EnrollmentsPage() {
     normalizeApiError(enrollmentsQuery.error) ??
     normalizeApiError(coursesQuery.error) ??
     normalizeApiError(semestersQuery.error);
-  const isLoading =
-    enrollmentsQuery.isLoading || coursesQuery.isLoading || semestersQuery.isLoading;
 
   const enrollments = enrollmentsQuery.data?.enrollments ?? [];
+  const total = enrollmentsQuery.data?.total ?? enrollmentsQuery.data?.count ?? 0;
+  const totalPages =
+    enrollmentsQuery.data?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
+
   const semesters = semestersQuery.data?.semesters ?? [];
   const courses = coursesQuery.data?.courses ?? [];
 
@@ -110,33 +117,6 @@ export default function EnrollmentsPage() {
     ).values(),
   ].sort((a, b) => a.label.localeCompare(b.label));
 
-  const term = search.trim().toLowerCase();
-  const filtered = enrollments.filter((enrollment) => {
-    if (status !== "all" && enrollment.status !== status) return false;
-    if (semesterId !== "all" && enrollment.semesterId !== semesterId) return false;
-    if (!term) return true;
-
-    const student = enrollment.student?.user.name ?? "";
-    const studentCode = enrollment.student?.studentCode ?? "";
-
-    return (
-      student.toLowerCase().includes(term) ||
-      studentCode.toLowerCase().includes(term) ||
-      enrollment.course.code.toLowerCase().includes(term) ||
-      enrollment.course.name.toLowerCase().includes(term)
-    );
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const visible = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
-
-  const filtersActive =
-    term !== "" || status !== "ACTIVE" || semesterId !== "all";
-
   async function drop(enrollment: Enrollment) {
     try {
       await dropEnrollment(enrollment.id).unwrap();
@@ -153,6 +133,121 @@ export default function EnrollmentsPage() {
     }
   }
 
+  const columns: TableColumn<Enrollment>[] = useMemo(
+    () => [
+      {
+        key: "student",
+        header: "Student",
+        render: (enrollment) => (
+          <div>
+            <p className="font-medium">
+              {enrollment.student?.user.name ?? enrollment.studentId}
+            </p>
+            {enrollment.student?.studentCode && (
+              <p className="text-xs text-muted-foreground font-mono">
+                {enrollment.student.studentCode}
+              </p>
+            )}
+          </div>
+        ),
+        exportValue: (enrollment) =>
+          `${enrollment.student?.user.name ?? enrollment.studentId} (${enrollment.student?.studentCode ?? ""})`,
+      },
+      {
+        key: "course",
+        header: "Course",
+        render: (enrollment) => (
+          <div>
+            <span className="font-mono text-xs font-semibold">
+              {enrollment.course.code}
+            </span>
+            <span className="text-muted-foreground"> — {enrollment.course.name}</span>
+          </div>
+        ),
+        exportValue: (enrollment) =>
+          `${enrollment.course.code} - ${enrollment.course.name}`,
+      },
+      {
+        key: "semester",
+        header: "Semester",
+        render: (enrollment) => (
+          <span className="text-muted-foreground">
+            {enrollment.semester.name}
+          </span>
+        ),
+        exportValue: (enrollment) =>
+          `${enrollment.semester.name} (${enrollment.semester.academicYear})`,
+      },
+      {
+        key: "enrollmentDate",
+        header: "Enrolled",
+        sortable: true,
+        sortKey: "enrollmentDate",
+        className: "text-muted-foreground tabular-nums",
+        render: (enrollment) => (
+          <span>{formatDate(enrollment.enrollmentDate)}</span>
+        ),
+        exportValue: (enrollment) => formatDate(enrollment.enrollmentDate),
+      },
+      {
+        key: "grade",
+        header: "Grade",
+        sortable: true,
+        sortKey: "grade",
+        className: "tabular-nums",
+        render: (enrollment) => <span>{enrollment.grade ?? "—"}</span>,
+        exportValue: (enrollment) => enrollment.grade ?? "",
+      },
+      {
+        key: "status",
+        header: "Status",
+        sortable: true,
+        sortKey: "status",
+        render: (enrollment) => (
+          <EnrollmentStatusBadge status={enrollment.status} />
+        ),
+        exportValue: (enrollment) => enrollment.status,
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        excludeFromExport: true,
+        render: (enrollment) => {
+          const droppable =
+            enrollment.status === "ACTIVE" &&
+            enrollment.semester.status === "OPEN";
+
+          return (
+            <div className="flex justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="Edit enrollment"
+                onClick={() => setEditing(enrollment)}
+              >
+                <Pencil className="size-3.5" aria-hidden />
+              </Button>
+              {droppable ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-destructive"
+                  onClick={() => setDropping(enrollment)}
+                >
+                  <UserMinus className="size-3.5 mr-1" aria-hidden />
+                  Drop
+                </Button>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    []
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -166,193 +261,99 @@ export default function EnrollmentsPage() {
         }
       />
 
-      <QueryState
-        isLoading={isLoading}
-        error={error}
-        isEmpty={enrollmentsQuery.isSuccess && enrollments.length === 0}
-        emptyTitle="No enrollments yet"
-        emptyDescription="Enrollments appear here once a student takes a course for a semester."
-        requiredPermission={PERMISSIONS.enrollment}
-        onRetry={enrollmentsQuery.refetch}
-        loadingRows={8}
-      >
-        <div className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="relative lg:max-w-xs lg:flex-1">
-              <Search
-                className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search student or course"
-                aria-label="Search enrollments"
-                className="pl-8"
-              />
-            </div>
-
-            <Select
-              items={{ ACTIVE: "Active", DROPPED: "Dropped", all: "All statuses" }}
-              value={status}
-              onValueChange={(next) => {
-                setStatus(String(next));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="lg:w-40" aria-label="Filter by status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="DROPPED">Dropped</SelectItem>
-                <SelectItem value="all">All statuses</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              items={Object.fromEntries(
-                semesterOptions.map((option) => [option.value, option.label])
-              )}
-              value={semesterId}
-              onValueChange={(next) => {
-                setSemesterId(String(next));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="lg:w-56" aria-label="Filter by semester">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All semesters</SelectItem>
-                {semesterOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {filtersActive ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearch("");
-                  setStatus("ACTIVE");
-                  setSemesterId("all");
-                  setPage(1);
-                }}
+      <div className="space-y-4">
+        <DataTableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search student, code, or course..."
+          isFiltered={isFiltered}
+          onClearFilters={resetFilters}
+          onExportCsv={() => exportToCsv("enrollments", columns, enrollments)}
+          countSummary={
+            total > 0
+              ? `${enrollments.length} of ${total} enrollments`
+              : undefined
+          }
+          filters={
+            <>
+              <Select
+                items={{ ACTIVE: "Active", DROPPED: "Dropped", all: "All statuses" }}
+                value={filters.status}
+                onValueChange={(next) => setFilter("status", String(next))}
               >
-                <X aria-hidden />
-                Clear
+                <SelectTrigger className="h-9 sm:w-36 text-sm" aria-label="Filter by status">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="DROPPED">Dropped</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                items={Object.fromEntries(
+                  semesterOptions.map((opt) => [opt.value, opt.label])
+                )}
+                value={filters.semesterId}
+                onValueChange={(next) => setFilter("semesterId", String(next))}
+              >
+                <SelectTrigger className="h-9 sm:w-52 text-sm" aria-label="Filter by semester">
+                  <SelectValue placeholder="All semesters" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All semesters</SelectItem>
+                  {semesterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          }
+        />
+
+        <DataTable
+          data={enrollments}
+          columns={columns}
+          loading={enrollmentsQuery.isLoading || enrollmentsQuery.isFetching}
+          isError={enrollmentsQuery.isError}
+          errorMessage={error?.message}
+          onRetry={enrollmentsQuery.refetch}
+          emptyTitle="No enrollments yet"
+          emptyDescription={
+            isFiltered
+              ? "No enrollment matches these filters."
+              : "Enrollments appear here once a student takes a course for a semester."
+          }
+          emptyAction={
+            isFiltered ? (
+              <Button variant="outline" size="sm" onClick={resetFilters}>
+                Clear filters
               </Button>
-            ) : null}
-
-            <p className="text-xs text-muted-foreground tabular-nums lg:ml-auto">
-              {filtered.length} of {enrollments.length} enrollments
-            </p>
-          </div>
-
-          <Card>
-            <CardContent>
-              {visible.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  No enrollment matches these filters.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Semester</TableHead>
-                      <TableHead>Enrolled</TableHead>
-                      <TableHead>Grade</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visible.map((enrollment) => {
-                      // The API drops only inside an open semester.
-                      const droppable =
-                        enrollment.status === "ACTIVE" &&
-                        enrollment.semester.status === "OPEN";
-
-                      return (
-                        <TableRow key={enrollment.id}>
-                          <TableCell className="font-medium">
-                            {enrollment.student?.user.name ??
-                              enrollment.studentId}
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-mono text-xs">
-                              {enrollment.course.code}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {" "}
-                              {enrollment.course.name}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {enrollment.semester.name}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground tabular-nums">
-                            {formatDate(enrollment.enrollmentDate)}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            {enrollment.grade ?? "—"}
-                          </TableCell>
-                          <TableCell>
-                            <EnrollmentStatusBadge status={enrollment.status} />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label="Edit enrollment"
-                                onClick={() => setEditing(enrollment)}
-                              >
-                                <Pencil aria-hidden />
-                              </Button>
-                              {droppable ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-destructive"
-                                  onClick={() => setDropping(enrollment)}
-                                >
-                                  <UserMinus aria-hidden />
-                                  Drop
-                                </Button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {totalPages > 1 ? (
-            <TablePagination
-              page={currentPage}
-              totalPages={totalPages}
-              total={filtered.length}
-              unit="enrollment"
-              onPageChange={setPage}
-            />
-          ) : null}
-        </div>
-      </QueryState>
+            ) : (
+              <Button size="sm" onClick={() => setEditing("new")}>
+                <Plus className="size-4 mr-1" aria-hidden />
+                Add enrollment
+              </Button>
+            )
+          }
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          pagination={{
+            page,
+            pageSize,
+            total,
+            totalPages,
+            pageSizeOptions: [10, 15, 25, 50],
+            unit: "enrollments",
+            onPageChange: setPage,
+            onPageSizeChange: setPageSize,
+          }}
+        />
+      </div>
 
       {editing ? (
         <EnrollmentFormDialog

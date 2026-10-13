@@ -1,17 +1,20 @@
 "use client";
 
-import { Pencil, Plus, Search, X } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { departmentOptionsFromCourses } from "@/components/courses/department-options";
 import { CourseFormDialog } from "@/components/courses/course-form-dialog";
 import { PageHeader } from "@/components/shared/page-header";
-import { TablePagination } from "@/components/shared/pagination";
-import { QueryState } from "@/components/shared/query-states";
+import {
+  DataTable,
+  DataTableToolbar,
+  exportToCsv,
+  type TableColumn,
+  useTableQuery,
+} from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,22 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { normalizeApiError } from "@/lib/api/error";
 import { useCourseCatalogQuery } from "@/lib/api/coursesApi";
 import { useDepartmentsQuery } from "@/lib/api/departmentsApi";
-import { PERMISSIONS } from "@/lib/roles";
 import type { FieldOption } from "@/components/shared/form-fields";
 import type { Course } from "@/lib/types";
-
-const PAGE_SIZE = 10;
 
 /**
  * The only course list the API offers is the catalogue, which never contains a
@@ -44,21 +36,38 @@ const PAGE_SIZE = 10;
  * still be seen.
  */
 export default function CoursesClient() {
-  const coursesQuery = useCourseCatalogQuery();
-  // Directory of departments for the course editor dialog if permitted.
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    search,
+    setSearch,
+    sortBy,
+    sortOrder,
+    handleSort,
+    filters,
+    setFilter,
+    resetFilters,
+    isFiltered,
+    queryArgs,
+  } = useTableQuery({
+    initialPageSize: 10,
+    initialSortBy: "code",
+    initialSortOrder: "asc",
+    initialFilters: { departmentId: "all" },
+  });
+
+  const coursesQuery = useCourseCatalogQuery(queryArgs);
   const departmentsQuery = useDepartmentsQuery({ isActive: true });
 
-  const [search, setSearch] = useState("");
-  const [department, setDepartment] = useState("all");
-  const [page, setPage] = useState(1);
   const [formCourse, setFormCourse] = useState<Course | "new" | null>(null);
 
-  const courseError = normalizeApiError(coursesQuery.error);
-  const error = courseError;
-  const requiredPermission = PERMISSIONS.catalog;
-  const isLoading = coursesQuery.isLoading;
-
+  const error = normalizeApiError(coursesQuery.error);
   const courses = coursesQuery.data?.courses ?? [];
+  const total = coursesQuery.data?.total ?? coursesQuery.data?.count ?? 0;
+  const totalPages = coursesQuery.data?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
+
   const departmentOptions: FieldOption[] = departmentsQuery.data?.departments?.length
     ? departmentsQuery.data.departments.map((dept) => ({
         value: dept.id,
@@ -66,25 +75,76 @@ export default function CoursesClient() {
       }))
     : departmentOptionsFromCourses(courses);
 
-  const term = search.trim().toLowerCase();
-  const filtered = courses.filter((course) => {
-    if (department !== "all" && course.departmentId !== department) return false;
-    if (!term) return true;
-
-    return (
-      course.code.toLowerCase().includes(term) ||
-      course.name.toLowerCase().includes(term)
-    );
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const visible = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+  const columns: TableColumn<Course>[] = useMemo(
+    () => [
+      {
+        key: "code",
+        header: "Code",
+        sortable: true,
+        sortKey: "code",
+        width: "140px",
+        render: (course) => (
+          <Link
+            href={`/courses/${course.id}`}
+            className="font-mono text-xs font-semibold underline-offset-4 hover:underline text-primary"
+          >
+            {course.code}
+          </Link>
+        ),
+      },
+      {
+        key: "name",
+        header: "Name",
+        sortable: true,
+        sortKey: "name",
+        className: "font-medium",
+      },
+      {
+        key: "department",
+        header: "Department",
+        render: (course) => (
+          <span>{course.department?.code ?? course.departmentId}</span>
+        ),
+        exportValue: (course) => course.department?.code ?? course.departmentId,
+      },
+      {
+        key: "credits",
+        header: "Credits",
+        sortable: true,
+        sortKey: "credits",
+        align: "right",
+        className: "tabular-nums text-right",
+      },
+      {
+        key: "capacity",
+        header: "Capacity",
+        sortable: true,
+        sortKey: "capacity",
+        align: "right",
+        className: "tabular-nums text-right",
+      },
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        excludeFromExport: true,
+        render: (course) => (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFormCourse(course)}
+              className="h-8 text-xs"
+            >
+              <Pencil className="size-3.5 mr-1" aria-hidden />
+              Edit
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
   );
-
-  const filtersActive = term !== "" || department !== "all";
 
   return (
     <div className="space-y-6">
@@ -99,47 +159,32 @@ export default function CoursesClient() {
         }
       />
 
-      <QueryState
-        isLoading={isLoading}
-        error={error}
-        isEmpty={coursesQuery.isSuccess && courses.length === 0}
-        emptyTitle="The catalogue is empty"
-        emptyDescription="Create the first course to start building the catalogue."
-        requiredPermission={requiredPermission}
-        onRetry={coursesQuery.refetch}
-        loadingRows={6}
-      >
-        <div className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative sm:max-w-xs sm:flex-1">
-              <Search
-                className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search code or name"
-                aria-label="Search courses"
-                className="pl-8"
-              />
-            </div>
-
+      <div className="space-y-4">
+        <DataTableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search code or name..."
+          isFiltered={isFiltered}
+          onClearFilters={resetFilters}
+          onExportCsv={() => exportToCsv("course-catalogue", columns, courses)}
+          countSummary={
+            total > 0
+              ? `${courses.length} of ${total} courses`
+              : undefined
+          }
+          filters={
             <Select
               items={Object.fromEntries(
-                departmentOptions.map((option) => [option.value, option.label])
+                departmentOptions.map((opt) => [opt.value, opt.label])
               )}
-              value={department}
-              onValueChange={(next) => {
-                setDepartment(String(next));
-                setPage(1);
-              }}
+              value={filters.departmentId}
+              onValueChange={(next) => setFilter("departmentId", String(next))}
             >
-              <SelectTrigger className="sm:w-56" aria-label="Filter by department">
-                <SelectValue />
+              <SelectTrigger
+                className="h-9 sm:w-56 text-sm"
+                aria-label="Filter by department"
+              >
+                <SelectValue placeholder="All departments" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All departments</SelectItem>
@@ -150,99 +195,49 @@ export default function CoursesClient() {
                 ))}
               </SelectContent>
             </Select>
+          }
+        />
 
-            {filtersActive ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearch("");
-                  setDepartment("all");
-                  setPage(1);
-                }}
-              >
-                <X aria-hidden />
-                Clear
+        <DataTable
+          data={courses}
+          columns={columns}
+          loading={coursesQuery.isLoading || coursesQuery.isFetching}
+          isError={coursesQuery.isError}
+          errorMessage={error?.message}
+          onRetry={coursesQuery.refetch}
+          emptyTitle="The catalogue is empty"
+          emptyDescription={
+            isFiltered
+              ? "No courses match the active search or filters."
+              : "Create the first course to start building the catalogue."
+          }
+          emptyAction={
+            isFiltered ? (
+              <Button variant="outline" size="sm" onClick={resetFilters}>
+                Clear filters
               </Button>
-            ) : null}
-
-            <p className="text-xs text-muted-foreground tabular-nums sm:ml-auto">
-              {filtered.length} of {courses.length} courses
-            </p>
-          </div>
-
-          <Card>
-            <CardContent>
-              {visible.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  No course matches these filters.
-                </p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead className="text-right">Credits</TableHead>
-                      <TableHead className="text-right">Capacity</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visible.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell className="font-mono text-xs">
-                          <Link
-                            href={`/courses/${course.id}`}
-                            className="underline-offset-4 hover:underline"
-                          >
-                            {course.code}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {course.name}
-                        </TableCell>
-                        <TableCell>
-                          {course.department?.code ?? course.departmentId}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {course.credits}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {course.capacity}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setFormCourse(course)}
-                            >
-                              <Pencil aria-hidden />
-                              Edit
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          {totalPages > 1 ? (
-            <TablePagination
-              page={currentPage}
-              totalPages={totalPages}
-              total={filtered.length}
-              unit="course"
-              onPageChange={setPage}
-            />
-          ) : null}
-        </div>
-      </QueryState>
+            ) : (
+              <Button size="sm" onClick={() => setFormCourse("new")}>
+                <Plus className="size-4 mr-1" aria-hidden />
+                Add course
+              </Button>
+            )
+          }
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          pagination={{
+            page,
+            pageSize,
+            total,
+            totalPages,
+            pageSizeOptions: [10, 20, 50],
+            unit: "courses",
+            onPageChange: setPage,
+            onPageSizeChange: setPageSize,
+          }}
+        />
+      </div>
 
       {formCourse ? (
         <CourseFormDialog
@@ -255,4 +250,3 @@ export default function CoursesClient() {
     </div>
   );
 }
-

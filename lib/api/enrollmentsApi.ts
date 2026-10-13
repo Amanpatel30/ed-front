@@ -1,10 +1,10 @@
 import { baseApi } from "@/lib/api/baseApi";
 import type {
   CreateEnrollmentInput,
+  EnrollmentListParams,
   EnrollmentMutationResponse,
   EnrollmentResponse,
   EnrollmentsResponse,
-  PageParams,
   SelfEnrollmentInput,
   UpdateEnrollmentInput,
 } from "@/lib/types";
@@ -19,7 +19,7 @@ export const enrollmentsApi = baseApi.injectEndpoints({
     /* ------------------------------------------------ admin / super admin */
 
     /** GET /api/enrollments — requires ENROLLMENT_VIEW_ALL. */
-    enrollments: build.query<EnrollmentsResponse, PageParams | void>({
+    enrollments: build.query<EnrollmentsResponse, EnrollmentListParams | void>({
       query: (params) => ({ url: "/enrollments", params: params ?? undefined }),
       providesTags: (result) =>
         result
@@ -78,7 +78,7 @@ export const enrollmentsApi = baseApi.injectEndpoints({
     /* ------------------------------------------------------- student self-service */
 
     /** GET /api/enrollments/me — requires OWN_ENROLLMENT_VIEW. */
-    myEnrollments: build.query<EnrollmentsResponse, PageParams | void>({
+    myEnrollments: build.query<EnrollmentsResponse, EnrollmentListParams | void>({
       query: (params) => ({ url: "/enrollments/me", params: params ?? undefined }),
       providesTags: (result) =>
         result

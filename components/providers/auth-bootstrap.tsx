@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 
 import { restoreSession } from "@/lib/api/baseApi";
-import { signedOut } from "@/lib/features/auth/authSlice";
-import { ensureTabContext } from "@/lib/features/auth/tab-context";
 import { useAppDispatch, useAppStore } from "@/lib/hooks";
 
 /**
@@ -27,13 +25,7 @@ export function AuthBootstrap({ children }: { children: React.ReactNode }) {
     if (started.current) return;
     started.current = true;
 
-    void ensureTabContext().then((isOwner) => {
-      if (isOwner) {
-        return restoreSession(dispatch, store.getState);
-      } else {
-        dispatch(signedOut());
-      }
-    });
+    void restoreSession(dispatch, store.getState);
   }, [dispatch, store]);
 
   return <>{children}</>;

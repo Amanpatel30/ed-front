@@ -134,6 +134,10 @@ export interface Crumb {
 export function breadcrumbsFor(pathname: string, role: RoleName): Crumb[] {
   if (pathname === HOME_ROUTE) return [{ title: OVERVIEW.title }];
 
+  if (isPathWithin(pathname, "/profile")) {
+    return [{ title: OVERVIEW.title, href: HOME_ROUTE }, { title: "Profile & Settings" }];
+  }
+
   const section = navigationFor(role)
     .flatMap((group) => group.items)
     .find((item) => item.href !== HOME_ROUTE && isPathWithin(pathname, item.href));

@@ -2,17 +2,17 @@ import { baseApi } from "@/lib/api/baseApi";
 import type {
   AssignedCoursesResponse,
   AssignmentResponse,
+  CourseListParams,
   CourseResponse,
   CoursesResponse,
   CreateCourseInput,
-  PageParams,
   UpdateCourseInput,
 } from "@/lib/types";
 
 export const coursesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     /** GET /api/courses/public — public read-only courses catalogue (no auth required). */
-    publicCourses: build.query<CoursesResponse, PageParams | void>({
+    publicCourses: build.query<CoursesResponse, CourseListParams | void>({
       query: (params) => ({ url: "/courses/public", params: params ?? undefined }),
       providesTags: (result) =>
         result
@@ -33,7 +33,7 @@ export const coursesApi = baseApi.injectEndpoints({
     }),
 
     /** GET /api/courses/catalog — requires COURSE_CATALOG_VIEW. */
-    courseCatalog: build.query<CoursesResponse, PageParams | void>({
+    courseCatalog: build.query<CoursesResponse, CourseListParams | void>({
       query: (params) => ({ url: "/courses/catalog", params: params ?? undefined }),
       providesTags: (result) =>
         result
@@ -54,7 +54,7 @@ export const coursesApi = baseApi.injectEndpoints({
     }),
 
     /** GET /api/courses/instructors/me/courses — requires ASSIGNED_COURSE_VIEW. */
-    assignedCourses: build.query<AssignedCoursesResponse, PageParams | void>({
+    assignedCourses: build.query<AssignedCoursesResponse, CourseListParams | void>({
       query: (params) => ({
         url: "/courses/instructors/me/courses",
         params: params ?? undefined,

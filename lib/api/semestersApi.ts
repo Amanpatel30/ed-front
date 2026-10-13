@@ -1,7 +1,7 @@
 import { baseApi } from "@/lib/api/baseApi";
 import type {
   CreateSemesterInput,
-  PageParams,
+  SemesterListParams,
   SemesterResponse,
   SemestersResponse,
   UpdateSemesterInput,
@@ -10,7 +10,7 @@ import type {
 export const semestersApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     /** GET /api/semesters — requires SEMESTER_OPEN_CLOSE. */
-    semesters: build.query<SemestersResponse, PageParams | void>({
+    semesters: build.query<SemestersResponse, SemesterListParams | void>({
       query: (params) => ({ url: "/semesters", params: params ?? undefined }),
       providesTags: (result) =>
         result
