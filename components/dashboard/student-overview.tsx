@@ -42,7 +42,7 @@ export function StudentOverview() {
       description="Your enrollment record for every course you have taken."
       actions={
         <Link
-          href="/catalog"
+          href="/dashboard/catalog"
           className={buttonVariants()}
         >
           <BookOpen aria-hidden />

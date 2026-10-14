@@ -8,7 +8,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -58,65 +58,80 @@ export default function StudentsClient() {
 
   const departments = departmentsQuery.data?.departments ?? [];
 
-  const columns: TableColumn<Student>[] = useMemo(
+  const columns: ColumnDef<Student>[] = useMemo(
     () => [
       {
-        key: "studentCode",
+        accessorKey: "studentCode",
         header: "Student ID",
-        sortable: true,
-        sortKey: "studentCode",
-        width: "130px",
-        render: (student) => (
+        enableSorting: true,
+        meta: {
+          sortKey: "studentCode",
+          width: "130px",
+        },
+        cell: ({ row }) => (
           <span className="font-mono text-xs font-semibold">
-            {student.studentCode}
+            {row.original.studentCode}
           </span>
         ),
       },
       {
-        key: "name",
+        id: "name",
         header: "Full Name",
-        render: (student) => (
+        accessorFn: (student) => student.user?.name || "",
+        cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="font-medium text-foreground">
-              {student.user?.name || "—"}
+              {row.original.user?.name || "—"}
             </span>
             <span className="text-xs text-muted-foreground">
-              {student.user?.email || "—"}
+              {row.original.user?.email || "—"}
             </span>
           </div>
         ),
-        exportValue: (student) => student.user?.name || "",
+        meta: {
+          exportValue: (student) => student.user?.name || "",
+        },
       },
       {
-        key: "department",
+        id: "department",
         header: "Department",
-        render: (student) => (
+        accessorFn: (student) =>
+          student.department?.name ?? student.department?.code ?? "",
+        cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {student.department?.name ?? student.department?.code ?? "—"}
+            {row.original.department?.name ?? row.original.department?.code ?? "—"}
           </span>
         ),
-        exportValue: (student) => student.department?.name ?? "",
+        meta: {
+          exportValue: (student) => student.department?.name ?? "",
+        },
       },
       {
-        key: "enrollmentYear",
+        accessorKey: "enrollmentYear",
         header: "Cohort Year",
-        align: "right",
-        className: "tabular-nums text-right",
-        render: (student) => (
-          <span>{student.enrollmentYear ?? "—"}</span>
+        meta: {
+          align: "right",
+          className: "tabular-nums text-right",
+          exportValue: (student) => student.enrollmentYear ?? "",
+        },
+        cell: ({ row }) => (
+          <span>{row.original.enrollmentYear ?? "—"}</span>
         ),
       },
       {
-        key: "status",
+        accessorKey: "status",
         header: "Status",
-        align: "right",
-        render: (student) => (
+        meta: {
+          align: "right",
+          exportValue: (student) => student.status,
+        },
+        cell: ({ row }) => (
           <div className="flex justify-end">
             <Badge
-              variant={student.status === "ACTIVE" ? "secondary" : "outline"}
+              variant={row.original.status === "ACTIVE" ? "secondary" : "outline"}
               className="text-xs capitalize"
             >
-              {student.status.toLowerCase()}
+              {row.original.status.toLowerCase()}
             </Badge>
           </div>
         ),

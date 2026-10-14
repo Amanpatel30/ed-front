@@ -8,17 +8,20 @@ import { PublicHeader } from "@/components/layout/public-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { tabHasSession } from "@/lib/features/auth/tab-context";
 import { useAppSelector } from "@/lib/hooks";
 import { HOME_ROUTE, isPathWithin } from "@/lib/navigation";
 
 /**
  * Public layout shell.
  *
- * Public visitor routes (home page /, /about, /contact, /login, /register)
+ * Public visitor routes (home page /, /about, /contact, /login, /register, /catalog)
  * are only accessible to unauthenticated visitors.
  *
- * If a user is logged in:
- * - Authenticated students can access /catalog to browse and enroll.
+ * If a user is logged in, they should not see the home page or public routes;
+ * they are immediately redirected to their authenticated workspace:
+ * - Students visiting /catalog are redirected to /dashboard/catalog.
+ * - Administrators visiting /catalog are redirected to /courses.
  * - Any other public route immediately redirects to /dashboard.
  */
 export function PublicShell({ children }: { children: React.ReactNode }) {
@@ -26,23 +29,35 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hydrated = useHydrated();
   const status = useAppSelector((state) => state.auth.status);
+  const user = useAppSelector((state) => state.auth.user);
 
-  // Only authentication routes (/login, /register) are guest-only.
-  // The course catalog, about, contact, and home pages are accessible to everyone.
-  const isGuestOnly =
+  const isAuthRoute =
     isPathWithin(pathname, "/login") || isPathWithin(pathname, "/register");
 
-  const shouldRedirect = status === "authenticated" && isGuestOnly;
+  const hasSession = tabHasSession();
+  const isAuthenticated = status === "authenticated";
+  const isRestoring = status === "initializing" && hasSession;
+  const isPendingAuthRoute = status === "initializing" && isAuthRoute;
+
+  // Logged-in users should not see the home page or public routes
+  const shouldRedirect = isAuthenticated;
+
+  const targetPath =
+    pathname === "/catalog" && user?.role === "STUDENT"
+      ? "/dashboard/catalog"
+      : pathname === "/catalog" &&
+          (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN")
+        ? "/courses"
+        : HOME_ROUTE;
 
   useEffect(() => {
     if (shouldRedirect) {
-      router.replace(HOME_ROUTE);
+      router.replace(targetPath);
     }
-  }, [shouldRedirect, router]);
+  }, [shouldRedirect, targetPath, router]);
 
-  // If authenticated and visiting a guest-only route, or still initializing
-  // on a guest-only route, defer rendering markup and show a clean skeleton.
-  if (hydrated && (shouldRedirect || (status === "initializing" && isGuestOnly))) {
+  // If authenticated or restoring an existing session, defer rendering public markup and show a clean skeleton.
+  if (hydrated && (shouldRedirect || isRestoring || isPendingAuthRoute)) {
     return (
       <div
         className="flex min-h-svh w-full items-center justify-center bg-background p-8"
@@ -67,4 +82,3 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

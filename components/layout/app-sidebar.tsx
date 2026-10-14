@@ -31,7 +31,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useLogoutMutation } from "@/lib/api/authApi";
-import { isPathWithin, navigationFor } from "@/lib/navigation";
+import { HOME_ROUTE, isPathWithin, navigationFor } from "@/lib/navigation";
 import { ROLE_LABELS } from "@/lib/roles";
 import type { AuthUser } from "@/lib/types";
 
@@ -48,7 +48,7 @@ export function AppSidebar({ user }: { user: AuthUser }) {
       <SidebarHeader className="group-data-[collapsible=icon]:pt-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/" />}>
+            <SidebarMenuButton size="lg" render={<Link href={HOME_ROUTE} />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <GraduationCap className="size-4" aria-hidden />
               </div>

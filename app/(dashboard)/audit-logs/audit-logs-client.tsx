@@ -8,7 +8,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -30,19 +30,12 @@ export default function AuditLogsClient() {
     setPage,
     pageSize,
     setPageSize,
-    search,
-    setSearch,
-    sortBy,
-    sortOrder,
-    handleSort,
     filters,
     setFilter,
     resetFilters,
     isFiltered,
   } = useTableQuery({
     initialPageSize: 15,
-    initialSortBy: "createdAt",
-    initialSortOrder: "desc",
     initialFilters: { operation: "all" },
   });
 
@@ -58,26 +51,27 @@ export default function AuditLogsClient() {
   const totalPages =
     auditQuery.data?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
 
-  const columns: TableColumn<AuditLog>[] = useMemo(
+  const columns: ColumnDef<AuditLog>[] = useMemo(
     () => [
       {
-        key: "createdAt",
+        accessorKey: "createdAt",
         header: "Timestamp",
-        sortable: true,
-        sortKey: "createdAt",
-        width: "180px",
-        render: (log) => (
+        meta: {
+          width: "180px",
+          exportValue: (log) => formatDate(log.createdAt),
+        },
+        cell: ({ row }) => (
           <span className="text-xs text-muted-foreground">
-            {formatDate(log.createdAt)}
+            {formatDate(row.original.createdAt)}
           </span>
         ),
       },
       {
-        key: "operation",
+        accessorKey: "operation",
         header: "Action / Operation",
-        render: (log) => {
+        cell: ({ row }) => {
           let variant: "default" | "secondary" | "outline" | "destructive" = "secondary";
-          const op = log.operation?.toUpperCase() ?? "";
+          const op = row.original.operation?.toUpperCase() ?? "";
           if (op.includes("DELETE") || op.includes("DROP") || op.includes("DEACTIVATE")) {
             variant = "destructive";
           } else if (op.includes("CREATE") || op.includes("OPEN")) {
@@ -85,42 +79,51 @@ export default function AuditLogsClient() {
           }
           return (
             <Badge variant={variant} className="font-mono text-[10px] tracking-wide">
-              {log.operation}
+              {row.original.operation}
             </Badge>
           );
         },
       },
       {
-        key: "admin",
+        id: "admin",
         header: "Administrator",
-        render: (log) => (
+        accessorFn: (log) => log.admin?.email ?? "System",
+        cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="font-medium text-foreground text-xs">
-              {log.admin?.name ?? "System"}
+              {row.original.admin?.name ?? "System"}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {log.admin?.email ?? ""}
+              {row.original.admin?.email ?? ""}
             </span>
           </div>
         ),
-        exportValue: (log) => log.admin?.email ?? "System",
+        meta: {
+          exportValue: (log) => log.admin?.email ?? "System",
+        },
       },
       {
-        key: "targetType",
+        accessorKey: "targetType",
         header: "Target Entity",
-        render: (log) => (
+        cell: ({ row }) => (
           <span className="text-xs font-mono text-muted-foreground">
-            {log.targetType ?? "—"}
+            {row.original.targetType ?? "—"}
           </span>
         ),
+        meta: {
+          exportValue: (log) => log.targetType ?? "",
+        },
       },
       {
-        key: "targetId",
+        accessorKey: "targetId",
         header: "Record ID",
-        align: "right",
-        className: "tabular-nums text-right font-mono text-xs",
-        render: (log) => (
-          <span>{log.targetId ?? "—"}</span>
+        meta: {
+          align: "right",
+          className: "tabular-nums text-right font-mono text-xs",
+          exportValue: (log) => log.targetId ?? "",
+        },
+        cell: ({ row }) => (
+          <span>{row.original.targetId ?? "—"}</span>
         ),
       },
     ],
@@ -136,9 +139,6 @@ export default function AuditLogsClient() {
 
       <div className="space-y-4">
         <DataTableToolbar
-          search={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search operation..."
           isFiltered={isFiltered}
           onClearFilters={resetFilters}
           onExportCsv={() => exportToCsv("audit-logs", columns, auditLogs)}
@@ -185,9 +185,6 @@ export default function AuditLogsClient() {
               : "Administrative actions will appear here once executed."
           }
           emptyIcon={History}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSort={handleSort}
           pagination={{
             page,
             pageSize,

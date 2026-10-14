@@ -57,7 +57,7 @@ export function navigationFor(role: RoleName): NavGroup[] {
       {
         label: "Academics",
         items: [
-          { title: "Course catalog", href: "/catalog", icon: BookOpen },
+          { title: "Course catalog", href: "/dashboard/catalog", icon: BookOpen },
           {
             title: "My enrollments",
             href: "/my-enrollments",
@@ -154,6 +154,9 @@ export function navigationFor(role: RoleName): NavGroup[] {
 }
 
 export function isPathWithin(pathname: string, href: string) {
+  if (href === HOME_ROUTE) {
+    return pathname === HOME_ROUTE;
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

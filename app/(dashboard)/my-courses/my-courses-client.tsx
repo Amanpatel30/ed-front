@@ -7,7 +7,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { UnavailableState } from "@/components/shared/query-states";
@@ -58,63 +58,76 @@ export default function MyCoursesClient() {
     courses.map((course) => course.department?.code ?? course.departmentId)
   );
 
-  const columns: TableColumn<AssignedCourse>[] = useMemo(
+  const columns: ColumnDef<AssignedCourse>[] = useMemo(
     () => [
       {
-        key: "code",
+        accessorKey: "code",
         header: "Code",
-        sortable: true,
-        sortKey: "code",
-        width: "140px",
-        render: (course) => (
-          <span className="font-mono text-xs font-semibold">{course.code}</span>
+        enableSorting: true,
+        meta: {
+          sortKey: "code",
+          width: "140px",
+        },
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold">{row.original.code}</span>
         ),
       },
       {
-        key: "name",
+        accessorKey: "name",
         header: "Course",
-        sortable: true,
-        sortKey: "name",
-        className: "font-medium",
+        enableSorting: true,
+        meta: {
+          sortKey: "name",
+          className: "font-medium",
+        },
       },
       {
-        key: "department",
+        id: "department",
         header: "Department",
-        render: (course) => (
+        accessorFn: (course) => course.department?.name ?? course.departmentId,
+        cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {course.department?.name ?? course.departmentId}
+            {row.original.department?.name ?? row.original.departmentId}
           </span>
         ),
-        exportValue: (course) =>
-          course.department?.name ?? course.departmentId,
+        meta: {
+          exportValue: (course) =>
+            course.department?.name ?? course.departmentId,
+        },
       },
       {
-        key: "credits",
+        accessorKey: "credits",
         header: "Credits",
-        sortable: true,
-        sortKey: "credits",
-        align: "right",
-        className: "tabular-nums text-right",
+        enableSorting: true,
+        meta: {
+          sortKey: "credits",
+          align: "right",
+          className: "tabular-nums text-right",
+        },
       },
       {
-        key: "capacity",
+        accessorKey: "capacity",
         header: "Capacity",
-        sortable: true,
-        sortKey: "capacity",
-        align: "right",
-        className: "tabular-nums text-right",
+        enableSorting: true,
+        meta: {
+          sortKey: "capacity",
+          align: "right",
+          className: "tabular-nums text-right",
+        },
       },
       {
-        key: "assigned",
+        id: "assigned",
         header: "Assigned",
-        className: "text-muted-foreground tabular-nums",
-        render: (course) => (
+        meta: {
+          className: "text-muted-foreground tabular-nums",
+          exportValue: (course) =>
+            formatDate(course.instructors?.[0]?.CourseInstructor?.assignedAt),
+        },
+        cell: ({ row }) => (
           <span>
-            {formatDate(course.instructors?.[0]?.CourseInstructor?.assignedAt)}
+            {formatDate(row.original.instructors?.[0]?.CourseInstructor?.assignedAt)}
           </span>
         ),
-        exportValue: (course) =>
-          formatDate(course.instructors?.[0]?.CourseInstructor?.assignedAt),
       },
     ],
     []

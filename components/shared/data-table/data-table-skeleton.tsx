@@ -2,17 +2,21 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import type { TableColumn } from "./data-table-types";
+import type { ColumnDef } from "@tanstack/react-table";
 
-interface DataTableSkeletonProps<T> {
-  columns: TableColumn<T>[];
+interface DataTableSkeletonProps<TData> {
+  columns?: ColumnDef<TData, unknown>[];
+  columnCount?: number;
   rows?: number;
 }
 
-export function DataTableSkeleton<T>({
+export function DataTableSkeleton<TData>({
   columns,
+  columnCount = columns?.length ?? 5,
   rows = 5,
-}: DataTableSkeletonProps<T>) {
+}: DataTableSkeletonProps<TData>) {
+  const count = columns?.length ?? columnCount;
+
   return (
     <>
       {Array.from({ length: rows }).map((_, rowIndex) => (
@@ -20,21 +24,24 @@ export function DataTableSkeleton<T>({
           key={`skeleton-row-${rowIndex}`}
           className="border-b transition-colors"
         >
-          {columns.map((column, colIndex) => {
+          {Array.from({ length: count }).map((_, colIndex) => {
+            const column = columns?.[colIndex];
+            const meta = column?.meta;
+            const align = meta?.align ?? "left";
             const alignClass =
-              column.align === "right"
+              align === "right"
                 ? "text-right justify-end"
-                : column.align === "center"
+                : align === "center"
                 ? "text-center justify-center"
                 : "text-left justify-start";
 
             return (
               <td
                 key={`skeleton-cell-${colIndex}`}
-                className={cn("p-4 align-middle", column.className)}
+                className={cn("p-4 align-middle", meta?.className)}
                 style={
-                  column.width
-                    ? { width: column.width, minWidth: column.width }
+                  meta?.width
+                    ? { width: meta.width, minWidth: meta.width }
                     : undefined
                 }
               >
@@ -46,7 +53,7 @@ export function DataTableSkeleton<T>({
                         ? "w-24"
                         : colIndex === 1
                         ? "w-44"
-                        : colIndex === columns.length - 1
+                        : colIndex === count - 1
                         ? "w-16"
                         : "w-28"
                     )}
@@ -60,4 +67,3 @@ export function DataTableSkeleton<T>({
     </>
   );
 }
-

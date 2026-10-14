@@ -1,4 +1,4 @@
-import type { TableColumn } from "./data-table-types";
+import type { ColumnDef } from "@tanstack/react-table";
 
 /**
  * Cleanly escapes a string or value for inclusion in a CSV file.
@@ -17,17 +17,20 @@ function escapeCsvValue(val: unknown): string {
 }
 
 /**
- * Exports data to a CSV file in the browser using TableColumn definitions.
+ * Exports data to a CSV file in the browser using TanStack ColumnDef definitions.
  */
-export function exportToCsv<T extends object>(
+export function exportToCsv<TData extends object>(
   filename: string,
-  columns: TableColumn<T>[],  
-  data: T[]
+  columns: ColumnDef<TData, unknown>[],
+  data: TData[]
 ): void {
   // Filter out columns explicitly excluded from export (like action buttons)
-  const exportableColumns = columns.filter(
-    (col) => !col.excludeFromExport && col.header && typeof col.header === "string"
-  );
+  const exportableColumns = columns.filter((col) => {
+    if (col.meta?.excludeFromExport) return false;
+    const colId = col.id ?? (col as { accessorKey?: string }).accessorKey;
+    if (colId === "actions") return false;
+    return true;
+  });
 
   if (exportableColumns.length === 0 || data.length === 0) {
     return;
@@ -35,19 +38,38 @@ export function exportToCsv<T extends object>(
 
   // Header row
   const headerRow = exportableColumns
-    .map((col) => escapeCsvValue(col.header))
+    .map((col) => {
+      let title = "";
+      if (typeof col.header === "string") {
+        title = col.header;
+      } else if (typeof col.meta?.headerTitle === "string") {
+        title = col.meta.headerTitle;
+      } else if (col.id) {
+        title = col.id;
+      } else if ((col as { accessorKey?: string }).accessorKey) {
+        title = String((col as { accessorKey?: string }).accessorKey);
+      }
+      return escapeCsvValue(title);
+    })
     .join(",");
 
   // Data rows
   const dataRows = data.map((item) => {
-    const row = item as Record<string, unknown>;
+    const record = item as Record<string, unknown>;
     return exportableColumns
       .map((col) => {
-        if (col.exportValue) {
-          return escapeCsvValue(col.exportValue(item));
+        if (col.meta?.exportValue) {
+          return escapeCsvValue(col.meta.exportValue(item));
         }
-        const val = row[col.key];
-        return escapeCsvValue(val);
+        const accessorCol = col as unknown as { accessorFn?: (row: TData, index: number) => unknown };
+        if (typeof accessorCol.accessorFn === "function") {
+          return escapeCsvValue(accessorCol.accessorFn(item, 0));
+        }
+        const key = (col as { accessorKey?: string }).accessorKey || col.id;
+        if (key && record[key] !== undefined) {
+          return escapeCsvValue(record[key]);
+        }
+        return "";
       })
       .join(",");
   });

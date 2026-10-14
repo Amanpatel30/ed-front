@@ -12,7 +12,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { EnrollmentStatusBadge } from "@/components/shared/status-badge";
@@ -133,87 +133,109 @@ export default function EnrollmentsPage() {
     }
   }
 
-  const columns: TableColumn<Enrollment>[] = useMemo(
+  const columns: ColumnDef<Enrollment>[] = useMemo(
     () => [
       {
-        key: "student",
+        id: "student",
         header: "Student",
-        render: (enrollment) => (
-          <div>
-            <p className="font-medium">
-              {enrollment.student?.user.name ?? enrollment.studentId}
-            </p>
-            {enrollment.student?.studentCode && (
-              <p className="text-xs text-muted-foreground font-mono">
-                {enrollment.student.studentCode}
+        cell: ({ row }) => {
+          const enrollment = row.original;
+          return (
+            <div>
+              <p className="font-medium">
+                {enrollment.student?.user.name ?? enrollment.studentId}
               </p>
-            )}
-          </div>
-        ),
-        exportValue: (enrollment) =>
-          `${enrollment.student?.user.name ?? enrollment.studentId} (${enrollment.student?.studentCode ?? ""})`,
+              {enrollment.student?.studentCode && (
+                <p className="text-xs text-muted-foreground font-mono">
+                  {enrollment.student.studentCode}
+                </p>
+              )}
+            </div>
+          );
+        },
+        meta: {
+          exportValue: (enrollment) =>
+            `${enrollment.student?.user.name ?? enrollment.studentId} (${enrollment.student?.studentCode ?? ""})`,
+        },
       },
       {
-        key: "course",
+        id: "course",
         header: "Course",
-        render: (enrollment) => (
-          <div>
-            <span className="font-mono text-xs font-semibold">
-              {enrollment.course.code}
-            </span>
-            <span className="text-muted-foreground"> — {enrollment.course.name}</span>
-          </div>
-        ),
-        exportValue: (enrollment) =>
-          `${enrollment.course.code} - ${enrollment.course.name}`,
+        cell: ({ row }) => {
+          const enrollment = row.original;
+          return (
+            <div>
+              <span className="font-mono text-xs font-semibold">
+                {enrollment.course.code}
+              </span>
+              <span className="text-muted-foreground"> — {enrollment.course.name}</span>
+            </div>
+          );
+        },
+        meta: {
+          exportValue: (enrollment) =>
+            `${enrollment.course.code} - ${enrollment.course.name}`,
+        },
       },
       {
-        key: "semester",
+        id: "semester",
         header: "Semester",
-        render: (enrollment) => (
+        cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {enrollment.semester.name}
+            {row.original.semester.name}
           </span>
         ),
-        exportValue: (enrollment) =>
-          `${enrollment.semester.name} (${enrollment.semester.academicYear})`,
+        meta: {
+          exportValue: (enrollment) =>
+            `${enrollment.semester.name} (${enrollment.semester.academicYear})`,
+        },
       },
       {
-        key: "enrollmentDate",
+        accessorKey: "enrollmentDate",
         header: "Enrolled",
-        sortable: true,
-        sortKey: "enrollmentDate",
-        className: "text-muted-foreground tabular-nums",
-        render: (enrollment) => (
-          <span>{formatDate(enrollment.enrollmentDate)}</span>
+        enableSorting: true,
+        meta: {
+          sortKey: "enrollmentDate",
+          className: "text-muted-foreground tabular-nums",
+          exportValue: (enrollment) => formatDate(enrollment.enrollmentDate),
+        },
+        cell: ({ row }) => (
+          <span>{formatDate(row.original.enrollmentDate)}</span>
         ),
-        exportValue: (enrollment) => formatDate(enrollment.enrollmentDate),
       },
       {
-        key: "grade",
+        accessorKey: "grade",
         header: "Grade",
-        sortable: true,
-        sortKey: "grade",
-        className: "tabular-nums",
-        render: (enrollment) => <span>{enrollment.grade ?? "—"}</span>,
-        exportValue: (enrollment) => enrollment.grade ?? "",
+        enableSorting: true,
+        meta: {
+          sortKey: "grade",
+          className: "tabular-nums",
+          exportValue: (enrollment) => enrollment.grade ?? "",
+        },
+        cell: ({ row }) => <span>{row.original.grade ?? "—"}</span>,
       },
       {
-        key: "status",
+        accessorKey: "status",
         header: "Status",
-        sortable: true,
-        sortKey: "status",
-        render: (enrollment) => (
-          <EnrollmentStatusBadge status={enrollment.status} />
+        enableSorting: true,
+        meta: {
+          sortKey: "status",
+          exportValue: (enrollment) => enrollment.status,
+        },
+        cell: ({ row }) => (
+          <EnrollmentStatusBadge status={row.original.status} />
         ),
-        exportValue: (enrollment) => enrollment.status,
       },
       {
-        key: "actions",
+        id: "actions",
         header: "Actions",
-        align: "right",
-        excludeFromExport: true,
-        render: (enrollment) => {
+        enableSorting: false,
+        meta: {
+          align: "right",
+          excludeFromExport: true,
+        },
+        cell: ({ row }) => {
+          const enrollment = row.original;
           const droppable =
             enrollment.status === "ACTIVE" &&
             enrollment.semester.status === "OPEN";

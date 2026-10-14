@@ -11,7 +11,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { StatCard } from "@/components/shared/stat-card";
@@ -91,98 +91,119 @@ export default function MyEnrollmentsClient() {
     }
   }
 
-  const columns: TableColumn<Enrollment>[] = useMemo(
+  const columns: ColumnDef<Enrollment>[] = useMemo(
     () => [
       {
-        key: "course",
+        id: "course",
         header: "Course",
-        render: (enrollment) => (
+        accessorFn: (enrollment) =>
+          `${enrollment.course?.code ?? ""} ${enrollment.course?.name ?? ""}`,
+        cell: ({ row }) => (
           <div>
             <span className="font-mono text-xs font-semibold">
-              {enrollment.course.code}
+              {row.original.course?.code}
             </span>
             <span className="font-medium text-foreground">
               {" "}
-              {enrollment.course.name}
+              {row.original.course?.name}
             </span>
           </div>
         ),
-        exportValue: (enrollment) =>
-          `${enrollment.course.code} - ${enrollment.course.name}`,
+        meta: {
+          exportValue: (enrollment) =>
+            `${enrollment.course?.code ?? ""} - ${enrollment.course?.name ?? ""}`,
+        },
       },
       {
-        key: "department",
+        id: "department",
         header: "Department",
-        className: "text-muted-foreground",
-        render: (enrollment) => (
-          <span>{enrollment.course.department?.code ?? "—"}</span>
+        accessorFn: (enrollment) => enrollment.course?.department?.code ?? "",
+        meta: {
+          className: "text-muted-foreground",
+          exportValue: (enrollment) =>
+            enrollment.course?.department?.code ?? "",
+        },
+        cell: ({ row }) => (
+          <span>{row.original.course?.department?.code ?? "—"}</span>
         ),
-        exportValue: (enrollment) =>
-          enrollment.course.department?.code ?? "",
       },
       {
-        key: "semester",
+        id: "semester",
         header: "Semester",
-        className: "text-muted-foreground",
-        render: (enrollment) => (
+        accessorFn: (enrollment) =>
+          `${enrollment.semester?.name ?? ""} ${enrollment.semester?.academicYear ?? ""}`,
+        meta: {
+          className: "text-muted-foreground",
+          exportValue: (enrollment) =>
+            `${enrollment.semester?.name ?? ""} ${enrollment.semester?.academicYear ?? ""}`,
+        },
+        cell: ({ row }) => (
           <span>
-            {enrollment.semester.name}
-            {enrollment.semester.academicYear
-              ? ` (${enrollment.semester.academicYear})`
+            {row.original.semester?.name}
+            {row.original.semester?.academicYear
+              ? ` (${row.original.semester?.academicYear})`
               : ""}
           </span>
         ),
-        exportValue: (enrollment) =>
-          `${enrollment.semester.name} ${enrollment.semester.academicYear ?? ""}`,
       },
       {
-        key: "credits",
+        accessorKey: "course.credits",
+        id: "credits",
         header: "Credits",
-        align: "right",
-        className: "text-right tabular-nums",
-        render: (enrollment) => (
-          <span>{enrollment.course.credits}</span>
-        ),
-        exportValue: (enrollment) => enrollment.course.credits,
+        meta: {
+          align: "right",
+          className: "text-right tabular-nums",
+          exportValue: (enrollment) => enrollment.course?.credits,
+        },
+        cell: ({ row }) => <span>{row.original.course?.credits}</span>,
       },
       {
-        key: "enrollmentDate",
+        accessorKey: "enrollmentDate",
         header: "Enrolled",
-        sortable: true,
-        sortKey: "enrollmentDate",
-        className: "text-muted-foreground tabular-nums",
-        render: (enrollment) => (
-          <span>{formatDate(enrollment.enrollmentDate)}</span>
+        enableSorting: true,
+        meta: {
+          sortKey: "enrollmentDate",
+          className: "text-muted-foreground tabular-nums",
+          exportValue: (enrollment) => formatDate(enrollment.enrollmentDate),
+        },
+        cell: ({ row }) => (
+          <span>{formatDate(row.original.enrollmentDate)}</span>
         ),
-        exportValue: (enrollment) => formatDate(enrollment.enrollmentDate),
       },
       {
-        key: "grade",
+        accessorKey: "grade",
         header: "Grade",
-        align: "center",
-        className: "tabular-nums text-center",
-        render: (enrollment) => <span>{enrollment.grade ?? "—"}</span>,
-        exportValue: (enrollment) => enrollment.grade ?? "",
+        meta: {
+          align: "center",
+          className: "tabular-nums text-center",
+          exportValue: (enrollment) => enrollment.grade ?? "",
+        },
+        cell: ({ row }) => <span>{row.original.grade ?? "—"}</span>,
       },
       {
-        key: "status",
+        accessorKey: "status",
         header: "Status",
-        sortable: true,
-        sortKey: "status",
-        render: (enrollment) => (
-          <EnrollmentStatusBadge status={enrollment.status} />
+        enableSorting: true,
+        meta: {
+          sortKey: "status",
+          exportValue: (enrollment) => enrollment.status,
+        },
+        cell: ({ row }) => (
+          <EnrollmentStatusBadge status={row.original.status} />
         ),
-        exportValue: (enrollment) => enrollment.status,
       },
       {
-        key: "actions",
+        id: "actions",
         header: "Actions",
-        align: "right",
-        excludeFromExport: true,
-        render: (enrollment) => {
+        meta: {
+          align: "right",
+          excludeFromExport: true,
+        },
+        cell: ({ row }) => {
+          const enrollment = row.original;
           const droppable =
             enrollment.status === "ACTIVE" &&
-            enrollment.semester.status === "OPEN";
+            enrollment.semester?.status === "OPEN";
 
           return (
             <div className="flex justify-end">
@@ -211,7 +232,7 @@ export default function MyEnrollmentsClient() {
         title="My enrollments"
         description="Every course you have taken, including dropped ones. Re-enrolling in a course you dropped for the same semester is not possible."
         actions={
-          <Link href="/catalog" className={buttonVariants()}>
+          <Link href="/dashboard/catalog" className={buttonVariants()}>
             <BookOpen aria-hidden />
             Browse catalog
           </Link>
@@ -279,7 +300,7 @@ export default function MyEnrollmentsClient() {
                   Clear filters
                 </Button>
               ) : (
-                <Link href="/catalog" className={buttonVariants({ size: "sm" })}>
+                <Link href="/dashboard/catalog" className={buttonVariants({ size: "sm" })}>
                   <BookOpen className="size-4 mr-1" aria-hidden />
                   Browse catalog
                 </Link>

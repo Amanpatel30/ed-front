@@ -11,7 +11,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
@@ -80,68 +80,82 @@ export default function CoursesClient() {
       }))
     : departmentOptionsFromCourses(courses);
 
-  const columns: TableColumn<Course>[] = useMemo(() => {
-    const cols: TableColumn<Course>[] = [
+  const columns: ColumnDef<Course>[] = useMemo(() => {
+    const cols: ColumnDef<Course>[] = [
       {
-        key: "code",
+        accessorKey: "code",
         header: "Code",
-        sortable: true,
-        sortKey: "code",
-        width: "140px",
-        render: (course) => (
+        enableSorting: true,
+        meta: {
+          sortKey: "code",
+          width: "140px",
+        },
+        cell: ({ row }) => (
           <Link
-            href={`/courses/${course.id}`}
+            href={`/courses/${row.original.id}`}
             className="font-mono text-xs font-semibold underline-offset-4 hover:underline text-primary"
           >
-            {course.code}
+            {row.original.code}
           </Link>
         ),
       },
       {
-        key: "name",
+        accessorKey: "name",
         header: "Name",
-        sortable: true,
-        sortKey: "name",
-        className: "font-medium",
+        enableSorting: true,
+        meta: {
+          sortKey: "name",
+          className: "font-medium",
+        },
       },
       {
-        key: "department",
+        id: "department",
+        accessorFn: (course) => course.department?.code ?? course.departmentId,
         header: "Department",
-        render: (course) => (
-          <span>{course.department?.code ?? course.departmentId}</span>
+        meta: {
+          exportValue: (course) => course.department?.code ?? course.departmentId,
+        },
+        cell: ({ row }) => (
+          <span>{row.original.department?.code ?? row.original.departmentId}</span>
         ),
-        exportValue: (course) => course.department?.code ?? course.departmentId,
       },
       {
-        key: "credits",
+        accessorKey: "credits",
         header: "Credits",
-        sortable: true,
-        sortKey: "credits",
-        align: "right",
-        className: "tabular-nums text-right",
+        enableSorting: true,
+        meta: {
+          sortKey: "credits",
+          align: "right",
+          className: "tabular-nums text-right",
+        },
       },
       {
-        key: "capacity",
+        accessorKey: "capacity",
         header: "Capacity",
-        sortable: true,
-        sortKey: "capacity",
-        align: "right",
-        className: "tabular-nums text-right",
+        enableSorting: true,
+        meta: {
+          sortKey: "capacity",
+          align: "right",
+          className: "tabular-nums text-right",
+        },
       },
     ];
 
     if (canManage) {
       cols.push({
-        key: "actions",
+        id: "actions",
         header: "Actions",
-        align: "right",
-        excludeFromExport: true,
-        render: (course) => (
+        enableSorting: false,
+        meta: {
+          align: "right",
+          excludeFromExport: true,
+        },
+        cell: ({ row }) => (
           <div className="flex justify-end">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setFormCourse(course)}
+              onClick={() => setFormCourse(row.original)}
               className="h-8 text-xs"
             >
               <Pencil className="size-3.5 mr-1" aria-hidden />

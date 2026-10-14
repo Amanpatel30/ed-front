@@ -8,7 +8,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -60,42 +60,53 @@ export default function DepartmentsClient() {
     return result;
   }, [departmentsQuery.data?.departments, search, sortBy, sortOrder]);
 
-  const columns: TableColumn<Department>[] = useMemo(
+  const columns: ColumnDef<Department>[] = useMemo(
     () => [
       {
-        key: "code",
+        accessorKey: "code",
         header: "Code",
-        sortable: true,
-        sortKey: "code",
-        width: "120px",
-        render: (dept) => (
-          <span className="font-mono text-xs font-semibold">{dept.code}</span>
+        enableSorting: true,
+        meta: {
+          sortKey: "code",
+          width: "120px",
+        },
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold">{row.original.code}</span>
         ),
       },
       {
-        key: "name",
+        accessorKey: "name",
         header: "Department Name",
-        sortable: true,
-        sortKey: "name",
-        className: "font-medium",
+        enableSorting: true,
+        meta: {
+          sortKey: "name",
+          className: "font-medium",
+        },
       },
       {
-        key: "description",
+        accessorKey: "description",
         header: "Description",
-        render: (dept) => (
+        cell: ({ row }) => (
           <span className="text-muted-foreground line-clamp-1">
-            {dept.description || "—"}
+            {row.original.description || "—"}
           </span>
         ),
+        meta: {
+          exportValue: (dept) => dept.description || "",
+        },
       },
       {
-        key: "status",
+        accessorKey: "isActive",
+        id: "status",
         header: "Status",
-        align: "right",
-        render: (dept) => (
+        meta: {
+          align: "right",
+          exportValue: (dept) => (dept.isActive ? "Active" : "Inactive"),
+        },
+        cell: ({ row }) => (
           <div className="flex justify-end">
-            <Badge variant={dept.isActive ? "secondary" : "outline"} className="text-xs">
-              {dept.isActive ? "Active" : "Inactive"}
+            <Badge variant={row.original.isActive ? "secondary" : "outline"} className="text-xs">
+              {row.original.isActive ? "Active" : "Inactive"}
             </Badge>
           </div>
         ),

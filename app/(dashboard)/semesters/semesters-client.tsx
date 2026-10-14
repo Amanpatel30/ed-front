@@ -11,7 +11,7 @@ import {
   DataTable,
   DataTableToolbar,
   exportToCsv,
-  type TableColumn,
+  type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
 import { SemesterStatusBadge } from "@/components/shared/status-badge";
@@ -112,95 +112,109 @@ export default function SemestersClient() {
     }
   }
 
-  const columns: TableColumn<Semester>[] = useMemo(
+  const columns: ColumnDef<Semester>[] = useMemo(
     () => [
       {
-        key: "name",
+        accessorKey: "name",
         header: "Semester",
-        sortable: true,
-        sortKey: "name",
-        className: "font-medium",
+        enableSorting: true,
+        meta: {
+          sortKey: "name",
+          className: "font-medium",
+        },
       },
       {
-        key: "academicYear",
+        accessorKey: "academicYear",
         header: "Academic year",
-        sortable: true,
-        sortKey: "academicYear",
-        className: "tabular-nums",
+        enableSorting: true,
+        meta: {
+          sortKey: "academicYear",
+          className: "tabular-nums",
+        },
       },
       {
-        key: "startDate",
+        accessorKey: "startDate",
         header: "Runs",
-        sortable: true,
-        sortKey: "startDate",
-        className: "text-muted-foreground tabular-nums",
-        render: (semester) => (
+        enableSorting: true,
+        meta: {
+          sortKey: "startDate",
+          className: "text-muted-foreground tabular-nums",
+          exportValue: (semester) =>
+            `${formatDate(semester.startDate)} - ${formatDate(semester.endDate)}`,
+        },
+        cell: ({ row }) => (
           <span>
-            {formatDate(semester.startDate)} — {formatDate(semester.endDate)}
+            {formatDate(row.original.startDate)} — {formatDate(row.original.endDate)}
           </span>
         ),
-        exportValue: (semester) =>
-          `${formatDate(semester.startDate)} - ${formatDate(semester.endDate)}`,
       },
       {
-        key: "status",
+        accessorKey: "status",
         header: "Status",
-        sortable: true,
-        sortKey: "status",
-        render: (semester) => <SemesterStatusBadge status={semester.status} />,
-        exportValue: (semester) => semester.status,
+        enableSorting: true,
+        meta: {
+          sortKey: "status",
+          exportValue: (semester) => semester.status,
+        },
+        cell: ({ row }) => <SemesterStatusBadge status={row.original.status} />,
       },
       {
-        key: "actions",
+        id: "actions",
         header: "Actions",
-        align: "right",
-        excludeFromExport: true,
-        render: (semester) => (
-          <div className="flex justify-end gap-1">
-            {semester.status === "UPCOMING" ? (
+        enableSorting: false,
+        meta: {
+          align: "right",
+          excludeFromExport: true,
+        },
+        cell: ({ row }) => {
+          const semester = row.original;
+          return (
+            <div className="flex justify-end gap-1">
+              {semester.status === "UPCOMING" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={transitioning === semester.id}
+                  onClick={() => void transition(semester, "open")}
+                  className="h-8 text-xs"
+                >
+                  <LockOpen className="size-3.5 mr-1" aria-hidden />
+                  Open
+                </Button>
+              ) : null}
+              {semester.status === "OPEN" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={transitioning === semester.id}
+                  onClick={() => void transition(semester, "close")}
+                  className="h-8 text-xs"
+                >
+                  <Lock className="size-3.5 mr-1" aria-hidden />
+                  Close
+                </Button>
+              ) : null}
               <Button
                 variant="ghost"
-                size="sm"
-                disabled={transitioning === semester.id}
-                onClick={() => void transition(semester, "open")}
-                className="h-8 text-xs"
+                size="icon"
+                className="size-8"
+                aria-label={`Edit ${semester.name}`}
+                onClick={() => setFormSemester(semester)}
               >
-                <LockOpen className="size-3.5 mr-1" aria-hidden />
-                Open
+                <Pencil className="size-3.5" aria-hidden />
               </Button>
-            ) : null}
-            {semester.status === "OPEN" ? (
               <Button
                 variant="ghost"
-                size="sm"
-                disabled={transitioning === semester.id}
-                onClick={() => void transition(semester, "close")}
-                className="h-8 text-xs"
+                size="icon"
+                className="size-8 text-destructive"
+                aria-label={`Delete ${semester.name}`}
+                onClick={() => setDeleting(semester)}
               >
-                <Lock className="size-3.5 mr-1" aria-hidden />
-                Close
+                <Trash2 className="size-3.5" aria-hidden />
               </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              aria-label={`Edit ${semester.name}`}
-              onClick={() => setFormSemester(semester)}
-            >
-              <Pencil className="size-3.5" aria-hidden />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-destructive"
-              aria-label={`Delete ${semester.name}`}
-              onClick={() => setDeleting(semester)}
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-            </Button>
-          </div>
-        ),
+            </div>
+          );
+        },
       },
     ],
     [transition, transitioning]
