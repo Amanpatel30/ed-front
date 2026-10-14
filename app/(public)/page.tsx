@@ -72,7 +72,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col gap-12 pb-16">
       {/* Hero section */}
-      <section className="relative overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/30 via-background to-background pt-16 pb-20 md:pt-24 md:pb-28">
+      <section className="relative overflow-hidden border-b border-border/60 bg-linear-to-b from-muted/30 via-background to-background pt-16 pb-20 md:pt-24 md:pb-28">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 -top-40 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklch,var(--primary)_15%,transparent),transparent)]"

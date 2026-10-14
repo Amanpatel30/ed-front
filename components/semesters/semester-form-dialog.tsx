@@ -70,26 +70,48 @@ export function SemesterFormDialog({
   );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const todayStr = new Date().toISOString().slice(0, 10);
 
+  function validate(fields: {
+    name: string;
+    academicYear: string;
+    startDate: string;
+    endDate: string;
+  }): FieldErrors {
     const errors: FieldErrors = {};
-    const trimmedName = name.trim();
-    const trimmedYear = academicYear.trim();
+    const trimmedName = fields.name.trim();
+    const trimmedYear = fields.academicYear.trim();
 
     if (!trimmedName) errors.name = "Enter the semester name.";
     if (!trimmedYear) errors.academicYear = "Enter the academic year.";
-    if (!startDate) errors.startDate = "Choose the first day.";
-    if (!endDate) errors.endDate = "Choose the last day.";
+    if (!fields.startDate) {
+      errors.startDate = "Choose the first day.";
+    } else if (fields.startDate < todayStr) {
+      errors.startDate = "Start date cannot be before today.";
+    }
+
+    if (!fields.endDate) {
+      errors.endDate = "Choose the last day.";
+    }
 
     // The API requires the start to be strictly before the end.
-    if (startDate && endDate && endDate <= startDate) {
+    if (fields.startDate && fields.endDate && fields.endDate <= fields.startDate) {
       errors.endDate = "The last day must be after the first day.";
     }
 
+    return errors;
+  }
+
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const errors = validate({ name, academicYear, startDate, endDate });
     setFieldErrors(errors);
 
     if (Object.keys(errors).length > 0) return;
+
+    const trimmedName = name.trim();
+    const trimmedYear = academicYear.trim();
 
     try {
       if (isEdit) {
@@ -178,7 +200,28 @@ export function SemesterFormDialog({
               label="First day"
               type="date"
               value={startDate}
-              onValueChange={setStartDate}
+              min={todayStr}
+              onValueChange={(val) => {
+                setStartDate(val);
+                if (fieldErrors.startDate || fieldErrors.endDate) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    if (!val) {
+                      next.startDate = "Choose the first day.";
+                    } else if (val < todayStr) {
+                      next.startDate = "Start date cannot be before today.";
+                    } else {
+                      delete next.startDate;
+                    }
+                    if (endDate && val && endDate <= val) {
+                      next.endDate = "The last day must be after the first day.";
+                    } else if (endDate && val && endDate > val && prev.endDate === "The last day must be after the first day.") {
+                      delete next.endDate;
+                    }
+                    return next;
+                  });
+                }
+              }}
               error={fieldErrors.startDate}
               required
             />
@@ -187,7 +230,23 @@ export function SemesterFormDialog({
               label="Last day"
               type="date"
               value={endDate}
-              onValueChange={setEndDate}
+              min={startDate || todayStr}
+              onValueChange={(val) => {
+                setEndDate(val);
+                if (fieldErrors.endDate) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    if (!val) {
+                      next.endDate = "Choose the last day.";
+                    } else if (startDate && val <= startDate) {
+                      next.endDate = "The last day must be after the first day.";
+                    } else {
+                      delete next.endDate;
+                    }
+                    return next;
+                  });
+                }
+              }}
               error={fieldErrors.endDate}
               required
             />

@@ -17,15 +17,26 @@ import { Icons } from '@/components/icons';
 import { Kbd } from '@/components/ui/kbd';
 import { DEFAULT_THEME, THEMES } from './theme.config';
 
-export function ThemeSelector() {
+export function ThemeSelector({
+  className,
+  showLabel = false,
+  fullWidth = false,
+}: {
+  className?: string;
+  showLabel?: boolean;
+  fullWidth?: boolean;
+} = {}) {
   const { activeTheme, setActiveTheme } = useThemeConfig();
   const hydrated = useHydrated();
 
   const currentTheme = hydrated ? activeTheme : DEFAULT_THEME;
 
   return (
-    <div className='flex items-center gap-2'>
-      <Label htmlFor='theme-selector' className='sr-only'>
+    <div className={className ? `flex flex-col gap-1 ${className}` : 'flex flex-col gap-1'}>
+      <Label
+        htmlFor='theme-selector'
+        className={showLabel ? 'text-xs font-medium text-foreground' : 'sr-only'}
+      >
         Theme
       </Label>
       <Select
@@ -37,20 +48,23 @@ export function ThemeSelector() {
       >
         <SelectTrigger
           id='theme-selector'
-          className='justify-start *:data-[slot=select-value]:w-24'
+          className={
+            fullWidth
+              ? 'h-8 w-full justify-between text-xs'
+              : 'justify-start *:data-[slot=select-value]:w-24'
+          }
         >
-          <span className='text-muted-foreground hidden sm:block'>
+          <span className='text-muted-foreground'>
             <Icons.palette />
           </span>
-          <span className='text-muted-foreground block sm:hidden'>Theme</span>
           <SelectValue placeholder='Select a theme' />
-          <Kbd>T T</Kbd>
+          {!fullWidth && <Kbd>T T</Kbd>}
         </SelectTrigger>
         <SelectContent align='end'>
           {THEMES.length > 0 && (
             <>
               <SelectGroup>
-                <SelectLabel>themes</SelectLabel>
+                <SelectLabel>Themes</SelectLabel>
                 {THEMES.map((theme) => (
                   <SelectItem key={theme.name} value={theme.value}>
                     {theme.name}
