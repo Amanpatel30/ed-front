@@ -25,6 +25,8 @@ import {
 import { normalizeApiError } from "@/lib/api/error";
 import { useCourseCatalogQuery } from "@/lib/api/coursesApi";
 import { useDepartmentsQuery } from "@/lib/api/departmentsApi";
+import { useAppSelector } from "@/lib/hooks";
+import { can } from "@/lib/roles";
 import type { FieldOption } from "@/components/shared/form-fields";
 import type { Course } from "@/lib/types";
 
@@ -61,6 +63,9 @@ export default function CoursesClient() {
   const coursesQuery = useCourseCatalogQuery(queryArgs);
   const departmentsQuery = useDepartmentsQuery({ isActive: true });
 
+  const user = useAppSelector((state) => state.auth.user);
+  const canManage = user?.role ? can.manageCourses(user.role) : false;
+
   const [formCourse, setFormCourse] = useState<Course | "new" | null>(null);
 
   const error = normalizeApiError(coursesQuery.error);
@@ -75,8 +80,8 @@ export default function CoursesClient() {
       }))
     : departmentOptionsFromCourses(courses);
 
-  const columns: TableColumn<Course>[] = useMemo(
-    () => [
+  const columns: TableColumn<Course>[] = useMemo(() => {
+    const cols: TableColumn<Course>[] = [
       {
         key: "code",
         header: "Code",
@@ -123,7 +128,10 @@ export default function CoursesClient() {
         align: "right",
         className: "tabular-nums text-right",
       },
-      {
+    ];
+
+    if (canManage) {
+      cols.push({
         key: "actions",
         header: "Actions",
         align: "right",
@@ -141,10 +149,11 @@ export default function CoursesClient() {
             </Button>
           </div>
         ),
-      },
-    ],
-    []
-  );
+      });
+    }
+
+    return cols;
+  }, [canManage]);
 
   return (
     <div className="space-y-6">
@@ -152,10 +161,12 @@ export default function CoursesClient() {
         title="Course catalogue"
         description="Active courses only — the API does not return deactivated ones. A course can be retired from its edit dialog."
         actions={
-          <Button onClick={() => setFormCourse("new")}>
-            <Plus aria-hidden />
-            New course
-          </Button>
+          canManage ? (
+            <Button onClick={() => setFormCourse("new")}>
+              <Plus aria-hidden />
+              New course
+            </Button>
+          ) : null
         }
       />
 

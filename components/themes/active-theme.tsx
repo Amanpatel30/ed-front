@@ -1,8 +1,8 @@
 'use client';
 
-import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { ReactNode, createContext, useCallback, useContext, useSyncExternalStore } from 'react';
 
-import { DEFAULT_THEME } from './theme.config';
+import { DEFAULT_THEME, THEMES } from './theme.config';
 
 const COOKIE_NAME = 'active_theme';
 
@@ -10,6 +10,29 @@ function setThemeCookie(theme: string) {
   if (typeof window === 'undefined') return;
 
   document.cookie = `${COOKIE_NAME}=${theme}; path=/; max-age=31536000; SameSite=Lax; ${window.location.protocol === 'https:' ? 'Secure;' : ''}`;
+}
+
+const listeners = new Set<() => void>();
+
+function subscribe(callback: () => void) {
+  listeners.add(callback);
+  return () => {
+    listeners.delete(callback);
+  };
+}
+
+function getClientTheme(): string {
+  if (typeof document === 'undefined') return DEFAULT_THEME;
+  const fromAttr = document.documentElement.getAttribute('data-theme');
+  if (fromAttr && THEMES.some((t) => t.value === fromAttr)) {
+    return fromAttr;
+  }
+  const match = document.cookie.match(/(?:^|;\s*)active_theme=([^;]+)/);
+  if (match && match[1]) {
+    const val = decodeURIComponent(match[1]);
+    if (THEMES.some((t) => t.value === val)) return val;
+  }
+  return DEFAULT_THEME;
 }
 
 type ThemeContextType = {
@@ -21,46 +44,36 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ActiveThemeProvider({
   children,
-  initialTheme
+  initialTheme = DEFAULT_THEME,
 }: {
   children: ReactNode;
   initialTheme?: string;
 }) {
-  const [activeTheme, setActiveTheme] = useState<string>(() => {
+  const activeTheme = useSyncExternalStore(
+    subscribe,
+    getClientTheme,
+    () => initialTheme
+  );
+
+  const setActiveTheme = useCallback((theme: string) => {
+    if (!THEMES.some((t) => t.value === theme)) return;
+
+    setThemeCookie(theme);
+
     if (typeof document !== 'undefined') {
-      const fromAttr = document.documentElement.getAttribute('data-theme');
-      if (fromAttr) return fromAttr;
-      const match = document.cookie.match(/(?:^|;\s*)active_theme=([^;]+)/);
-      if (match && match[1]) return decodeURIComponent(match[1]);
-    }
-    return initialTheme || DEFAULT_THEME;
-  });
-
-  useEffect(() => {
-    // Only update if theme has changed
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    if (currentTheme !== activeTheme) {
-      setThemeCookie(activeTheme);
-
-      // Remove existing data-theme attribute
       document.documentElement.removeAttribute('data-theme');
 
-      // Remove any theme classes from body (cleanup)
       Array.from(document.body.classList)
         .filter((className) => className.startsWith('theme-'))
         .forEach((className) => {
           document.body.classList.remove(className);
         });
 
-      // Set data-theme on html element
-      if (activeTheme) {
-        document.documentElement.setAttribute('data-theme', activeTheme);
-      }
-    } else {
-      // Still update cookie in case it's missing
-      setThemeCookie(activeTheme);
+      document.documentElement.setAttribute('data-theme', theme);
     }
-  }, [activeTheme]);
+
+    listeners.forEach((listener) => listener());
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ activeTheme, setActiveTheme }}>

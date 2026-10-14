@@ -106,7 +106,10 @@ export const enrollmentsApi = baseApi.injectEndpoints({
       SelfEnrollmentInput
     >({
       query: (body) => ({ url: "/enrollments/me", method: "POST", body }),
-      invalidatesTags: [{ type: "Enrollment", id: "MINE" }],
+      invalidatesTags: [
+        { type: "Enrollment", id: "MINE" },
+        { type: "Course", id: "LIST" },
+      ],
     }),
 
     /** PATCH /api/enrollments/me/:id/drop — OWN_ENROLLMENT_CREATE_DROP. */
@@ -115,6 +118,7 @@ export const enrollmentsApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, id) => [
         { type: "Enrollment", id: `MINE-${id}` },
         { type: "Enrollment", id: "MINE" },
+        { type: "Course", id: "LIST" },
       ],
     }),
   }),

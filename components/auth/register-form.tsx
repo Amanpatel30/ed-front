@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useLoginMutation, useRegisterMutation } from "@/lib/api/authApi";
 import { normalizeApiError } from "@/lib/api/error";
-import { HOME_ROUTE } from "@/lib/navigation";
+import { HOME_ROUTE, safeNextPath } from "@/lib/navigation";
 import { EMAIL_PATTERN, MIN_PASSWORD_LENGTH } from "@/lib/validation";
 
 interface FieldErrors {
@@ -89,7 +89,10 @@ export function RegisterForm() {
         password,
       }).unwrap();
 
-      router.replace(HOME_ROUTE);
+      router.replace(
+        (typeof window !== "undefined" ? safeNextPath(window.location.search) : null) ??
+          HOME_ROUTE
+      );
     } catch (err) {
       const normalized = normalizeApiError(err);
       if (normalized?.message) {

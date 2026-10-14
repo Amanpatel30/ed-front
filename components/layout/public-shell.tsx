@@ -26,14 +26,13 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hydrated = useHydrated();
   const status = useAppSelector((state) => state.auth.status);
-  const user = useAppSelector((state) => state.auth.user);
 
-  const isCatalog = isPathWithin(pathname, "/catalog");
-  const isStudent = user?.role === "STUDENT";
-  const isAllowedWhenAuthenticated = isCatalog && isStudent;
+  // Only authentication routes (/login, /register) are guest-only.
+  // The course catalog, about, contact, and home pages are accessible to everyone.
+  const isGuestOnly =
+    isPathWithin(pathname, "/login") || isPathWithin(pathname, "/register");
 
-  const shouldRedirect =
-    status === "authenticated" && !isAllowedWhenAuthenticated;
+  const shouldRedirect = status === "authenticated" && isGuestOnly;
 
   useEffect(() => {
     if (shouldRedirect) {
@@ -41,9 +40,9 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
     }
   }, [shouldRedirect, router]);
 
-  // If authenticated and visiting a visitor-only route, or still initializing
-  // on a visitor-only route, defer rendering public markup and show a clean skeleton.
-  if (hydrated && (shouldRedirect || (status === "initializing" && !isCatalog))) {
+  // If authenticated and visiting a guest-only route, or still initializing
+  // on a guest-only route, defer rendering markup and show a clean skeleton.
+  if (hydrated && (shouldRedirect || (status === "initializing" && isGuestOnly))) {
     return (
       <div
         className="flex min-h-svh w-full items-center justify-center bg-background p-8"

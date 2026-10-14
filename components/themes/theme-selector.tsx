@@ -1,6 +1,7 @@
 'use client';
 
 import { useThemeConfig } from '@/components/themes/active-theme';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -14,10 +15,13 @@ import {
 
 import { Icons } from '@/components/icons';
 import { Kbd } from '@/components/ui/kbd';
-import { THEMES } from './theme.config';
+import { DEFAULT_THEME, THEMES } from './theme.config';
 
 export function ThemeSelector() {
   const { activeTheme, setActiveTheme } = useThemeConfig();
+  const hydrated = useHydrated();
+
+  const currentTheme = hydrated ? activeTheme : DEFAULT_THEME;
 
   return (
     <div className='flex items-center gap-2'>
@@ -26,7 +30,7 @@ export function ThemeSelector() {
       </Label>
       <Select
         items={THEMES.map((theme) => ({ value: theme.value, label: theme.name }))}
-        value={activeTheme}
+        value={currentTheme}
         onValueChange={(value) => {
           if (value !== null) setActiveTheme(value);
         }}

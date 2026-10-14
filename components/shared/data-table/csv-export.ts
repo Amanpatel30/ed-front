@@ -21,7 +21,7 @@ function escapeCsvValue(val: unknown): string {
  */
 export function exportToCsv<T extends object>(
   filename: string,
-  columns: TableColumn<T>[],
+  columns: TableColumn<T>[],  
   data: T[]
 ): void {
   // Filter out columns explicitly excluded from export (like action buttons)
