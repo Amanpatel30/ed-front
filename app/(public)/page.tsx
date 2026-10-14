@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   BookOpen,
   CalendarDays,
@@ -5,12 +6,11 @@ import {
   ShieldCheck,
   Users,
   Workflow,
+  ArrowRight,
 } from "lucide-react";
-
-/**
- * Public landing page. Every claim below maps to a capability the EduCore API
- * actually implements — there are no invented statistics, customers or features.
- */
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 const CAPABILITIES = [
   {
@@ -48,131 +48,148 @@ const CAPABILITIES = [
 const ROLES = [
   {
     name: "Super Admin",
-    body: "Institution-wide oversight of the academic catalogue and enrollment records.",
+    badge: "System",
+    body: "Institution-wide oversight of the academic catalogue, departments, audits, and enrollment records.",
   },
   {
     name: "Admin",
-    body: "Manages courses, semesters, instructor assignment and enrollment records.",
+    badge: "Operations",
+    body: "Manages courses, semesters, instructor assignments, students, and enrollment records.",
   },
   {
     name: "Instructor",
-    body: "Sees the courses assigned to them and the students enrolled in those courses.",
+    badge: "Faculty",
+    body: "Sees assigned courses, course capacities, and student course information.",
   },
   {
     name: "Student",
-    body: "Browses the catalogue, enrolls in open semesters and manages their own enrollments.",
+    badge: "Learner",
+    body: "Browses the catalogue, self-enrolls during open semesters, and manages active study plans.",
   },
 ];
 
 export default function LandingPage() {
   return (
-    <>
-      <section className="relative overflow-hidden">
-        {/* Single restrained gradient wash, no imagery required. */}
+    <div className="flex flex-col gap-12 pb-16">
+      {/* Hero section */}
+      <section className="relative overflow-hidden border-b border-border/60 bg-gradient-to-b from-muted/30 via-background to-background pt-16 pb-20 md:pt-24 md:pb-28">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-40 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklch,var(--color-primary)_16%,transparent),transparent)]"
+          className="pointer-events-none absolute inset-x-0 -top-40 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklch,var(--primary)_15%,transparent),transparent)]"
         />
 
-        <div className="relative mx-auto w-full max-w-6xl px-4 pt-20 pb-16 sm:px-6 sm:pt-28 sm:pb-24">
-          <div className="max-w-3xl">
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-              <span
-                className="size-1.5 rounded-full bg-primary"
-                aria-hidden
-              />
-              Education management system
-            </p>
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center sm:px-6">
+          <Badge variant="outline" className="mb-6 gap-2 px-3 py-1 text-xs font-medium">
+            <span className="size-1.5 rounded-full bg-primary" aria-hidden />
+            Academic Management System
+          </Badge>
 
-            <h1 className="font-heading text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl md:text-6xl">
-              Academic operations, kept consistent end to end.
-            </h1>
+          <h1 className="max-w-4xl text-balance font-heading text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+            Academic operations, kept consistent end to end.
+          </h1>
 
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              EduCore holds the catalogue, the semester calendar and every
-              enrollment record in one place. Rules that matter — capacity,
-              duplicates, open semesters — are enforced by the API, and each
-              role only sees the work that belongs to it.
-            </p>
+          <p className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
+            EduCore holds the course catalogue, semester calendars, and enrollment records
+            in one place. Business rules — capacity limits, duplicates, and open semester
+            eligibility — are strictly enforced.
+          </p>
 
-            <p className="mt-9 text-sm text-muted-foreground">
-              Accounts are issued by your institution.
-            </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/catalog"
+              className={buttonVariants({ size: "lg", className: "gap-2 shadow-xs" })}
+            >
+              Browse course catalog
+              <ArrowRight className="size-4" />
+            </Link>
+            <Link
+              href="/login"
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+            >
+              Sign in to workspace
+            </Link>
           </div>
+
+          <p className="mt-4 text-xs text-muted-foreground">
+            Role-isolated access for Super Admins, Admins, Faculty Instructors, and Students.
+          </p>
         </div>
       </section>
 
-      <section
-        aria-labelledby="capabilities-heading"
-        className="border-t border-border/70 bg-muted/30"
-      >
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      {/* Capabilities section */}
+      <section aria-labelledby="capabilities-heading" className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        <div className="mb-10 text-center">
           <h2
             id="capabilities-heading"
-            className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl"
+            className="font-heading text-2xl font-bold tracking-tight sm:text-3xl"
           >
             What the system handles
           </h2>
-
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            The parts of running a term that go wrong when they live in
-            spreadsheets.
+          <p className="mt-2 text-muted-foreground">
+            The core elements of academic administration managed with consistency.
           </p>
+        </div>
 
-          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {CAPABILITIES.map(({ icon: Icon, title, body }) => (
-              <li
-                key={title}
-                className="rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="mb-4 flex size-9 items-center justify-center rounded-lg bg-accent">
-                  <Icon
-                    className="size-4 text-accent-foreground"
-                    aria-hidden
-                  />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {CAPABILITIES.map(({ icon: Icon, title, body }) => (
+            <Card
+              key={title}
+              className="group/card transition-all duration-200 hover:border-foreground/20 hover:shadow-sm"
+            >
+              <CardHeader className="gap-2">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="size-5" aria-hidden />
                 </div>
-
-                <h3 className="font-heading text-base font-medium">{title}</h3>
-
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <CardTitle className="text-base font-semibold">{title}</CardTitle>
+                <CardDescription className="text-sm leading-relaxed">
                   {body}
-                </p>
-              </li>
-            ))}
-          </ul>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
         </div>
       </section>
 
-      <section aria-labelledby="roles-heading">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      {/* Roles section */}
+      <section aria-labelledby="roles-heading" className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        <div className="mb-10 text-center">
           <h2
             id="roles-heading"
-            className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl"
+            className="font-heading text-2xl font-bold tracking-tight sm:text-3xl"
           >
-            One product, four roles
+            One platform, four tailored roles
           </h2>
-
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            Each role signs in to a workspace built around its own
-            responsibilities.
+          <p className="mt-2 text-muted-foreground">
+            Each role interacts with a dedicated workspace aligned with their authorized responsibilities.
           </p>
+        </div>
 
-          <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
-            {ROLES.map((role) => (
-              <div key={role.name} className="bg-card p-5">
-                <h3 className="font-heading text-base font-medium">
-                  {role.name}
-                </h3>
-
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {ROLES.map((role) => (
+            <Card key={role.name} className="flex flex-col justify-between">
+              <CardHeader className="gap-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold">{role.name}</CardTitle>
+                  <Badge variant="secondary" className="text-xs">
+                    {role.badge}
+                  </Badge>
+                </div>
+                <CardDescription className="text-sm leading-relaxed">
                   {role.body}
-                </p>
-              </div>
-            ))}
-          </div>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  Enter workspace <ArrowRight className="size-3" />
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
-
-    </>
+    </div>
   );
 }

@@ -45,7 +45,7 @@ export function AppSidebar({ user }: { user: AuthUser }) {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
+      <SidebarHeader className="group-data-[collapsible=icon]:pt-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>

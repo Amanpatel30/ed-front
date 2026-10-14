@@ -288,3 +288,71 @@ export interface DepartmentListParams extends PageParams {
   isActive?: boolean;
   search?: string;
 }
+
+/* ---------------------------------------------------------------- students */
+
+export interface StudentUser {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+}
+
+export interface Student {
+  id: string;
+  userId: string;
+  departmentId: string;
+  studentCode: string;
+  enrollmentYear?: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: StudentUser;
+  department?: DepartmentRef;
+  enrollments?: Enrollment[];
+}
+
+export interface StudentsResponse extends PageMeta {
+  count: number;
+  students: Student[];
+}
+
+export interface StudentResponse {
+  student: Student;
+}
+
+export interface StudentListParams extends PageParams {
+  departmentId?: string;
+  status?: string;
+  search?: string;
+  sort?: string;
+  order?: "asc" | "desc";
+}
+
+/* ---------------------------------------------------------------- audit logs */
+
+export interface AuditLogAdmin {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface AuditLog {
+  id: string;
+  operation: string;
+  targetId: string | null;
+  targetType: string | null;
+  createdAt: string;
+  updatedAt: string;
+  admin?: AuditLogAdmin;
+}
+
+export interface AuditLogsResponse extends PageMeta {
+  count: number;
+  auditLogs: AuditLog[];
+}
+
+export interface AuditLogListParams extends PageParams {
+  operation?: string;
+}
+

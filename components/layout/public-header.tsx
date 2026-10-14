@@ -14,6 +14,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThemeModeToggle } from "@/components/themes/theme-mode-toggle";
+import { ThemeSelector } from "@/components/themes/theme-selector";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useAppSelector } from "@/lib/hooks";
 import { HOME_ROUTE, isPathWithin } from "@/lib/navigation";
@@ -44,7 +46,7 @@ export function PublicHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href={user ? HOME_ROUTE : "/"}
           className="flex items-center gap-2 font-heading font-semibold tracking-tight"
@@ -82,6 +84,10 @@ export function PublicHeader() {
             Neither moves when the session resolves, so the navigation above
             cannot be displaced by a change in authentication state. */}
         <div className="flex items-center gap-2">
+          <ThemeModeToggle />
+          <div className="hidden sm:block">
+            <ThemeSelector />
+          </div>
           <AccountSection />
 
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>

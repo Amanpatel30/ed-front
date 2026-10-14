@@ -1,9 +1,12 @@
 import {
   BookOpen,
+  Building2,
   CalendarDays,
   ClipboardList,
   GraduationCap,
+  History,
   LayoutDashboard,
+  User,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -31,9 +34,15 @@ export const ROUTES = {
 } as const;
 
 const OVERVIEW: NavItem = {
-  title: "Overview",
+  title: "Dashboard",
   href: HOME_ROUTE,
   icon: LayoutDashboard,
+};
+
+const PROFILE: NavItem = {
+  title: "Profile & Settings",
+  href: "/profile",
+  icon: User,
 };
 
 /**
@@ -56,6 +65,10 @@ export function navigationFor(role: RoleName): NavGroup[] {
           },
         ],
       },
+      {
+        label: "Account",
+        items: [PROFILE],
+      },
     ];
   }
 
@@ -68,15 +81,26 @@ export function navigationFor(role: RoleName): NavGroup[] {
           { title: "My courses", href: "/my-courses", icon: GraduationCap },
         ],
       },
+      {
+        label: "Account",
+        items: [PROFILE],
+      },
     ];
   }
 
-  // ADMIN and SUPER_ADMIN share the academic-management surface. These entries
-  // are built from the same capability checks the routes and actions use.
+  // ADMIN and SUPER_ADMIN share the academic-management surface.
   const academics: NavItem[] = [];
 
   if (can.manageCourses(role) || can.viewCourseCatalog(role)) {
     academics.push({ title: "Courses", href: "/courses", icon: BookOpen });
+  }
+
+  if (can.manageDepartments(role)) {
+    academics.push({
+      title: "Departments",
+      href: "/departments",
+      icon: Building2,
+    });
   }
 
   if (can.manageSemesters(role)) {
@@ -91,14 +115,42 @@ export function navigationFor(role: RoleName): NavGroup[] {
     academics.push({
       title: "Enrollments",
       href: "/enrollments",
+      icon: ClipboardList,
+    });
+  }
+
+  if (can.manageStudents(role)) {
+    academics.push({
+      title: "Students",
+      href: "/students",
       icon: Users,
     });
   }
 
-  return [
+  const groups: NavGroup[] = [
     { label: "Overview", items: [OVERVIEW] },
-    { label: "Academics", items: academics },
+    { label: "Academic Management", items: academics },
   ];
+
+  if (can.viewAuditLogs(role)) {
+    groups.push({
+      label: "Administration",
+      items: [
+        {
+          title: "Audit Logs",
+          href: "/audit-logs",
+          icon: History,
+        },
+      ],
+    });
+  }
+
+  groups.push({
+    label: "Account",
+    items: [PROFILE],
+  });
+
+  return groups;
 }
 
 export function isPathWithin(pathname: string, href: string) {

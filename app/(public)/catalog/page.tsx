@@ -211,7 +211,7 @@ export default function PublicCatalogPage() {
   }, [showActions, isStudent, enrolledCourseIds, isAnonymous, router]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 space-y-6">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 space-y-6">
       <PageHeader
         title="Course catalog"
         description={

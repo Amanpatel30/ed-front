@@ -1,0 +1,205 @@
+"use client";
+
+import { useMemo } from "react";
+import { History } from "lucide-react";
+
+import { PageHeader } from "@/components/shared/page-header";
+import {
+  DataTable,
+  DataTableToolbar,
+  exportToCsv,
+  type TableColumn,
+  useTableQuery,
+} from "@/components/shared/data-table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuditLogsQuery } from "@/lib/api/auditApi";
+import { normalizeApiError } from "@/lib/api/error";
+import { formatDate } from "@/lib/format";
+import type { AuditLog } from "@/lib/types";
+
+export default function AuditLogsPage() {
+  const {
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    search,
+    setSearch,
+    sortBy,
+    sortOrder,
+    handleSort,
+    filters,
+    setFilter,
+    resetFilters,
+    isFiltered,
+  } = useTableQuery({
+    initialPageSize: 15,
+    initialSortBy: "createdAt",
+    initialSortOrder: "desc",
+    initialFilters: { operation: "all" },
+  });
+
+  const auditQuery = useAuditLogsQuery({
+    page,
+    limit: pageSize,
+    operation: filters.operation !== "all" ? filters.operation : undefined,
+  });
+
+  const error = normalizeApiError(auditQuery.error);
+  const auditLogs = auditQuery.data?.auditLogs ?? [];
+  const total = auditQuery.data?.total ?? auditQuery.data?.count ?? 0;
+  const totalPages =
+    auditQuery.data?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
+
+  const columns: TableColumn<AuditLog>[] = useMemo(
+    () => [
+      {
+        key: "createdAt",
+        header: "Timestamp",
+        sortable: true,
+        sortKey: "createdAt",
+        width: "180px",
+        render: (log) => (
+          <span className="text-xs text-muted-foreground">
+            {formatDate(log.createdAt)}
+          </span>
+        ),
+      },
+      {
+        key: "operation",
+        header: "Action / Operation",
+        render: (log) => {
+          let variant: "default" | "secondary" | "outline" | "destructive" = "secondary";
+          const op = log.operation?.toUpperCase() ?? "";
+          if (op.includes("DELETE") || op.includes("DROP") || op.includes("DEACTIVATE")) {
+            variant = "destructive";
+          } else if (op.includes("CREATE") || op.includes("OPEN")) {
+            variant = "default";
+          }
+          return (
+            <Badge variant={variant} className="font-mono text-[10px] tracking-wide">
+              {log.operation}
+            </Badge>
+          );
+        },
+      },
+      {
+        key: "admin",
+        header: "Administrator",
+        render: (log) => (
+          <div className="flex flex-col">
+            <span className="font-medium text-foreground text-xs">
+              {log.admin?.name ?? "System"}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {log.admin?.email ?? ""}
+            </span>
+          </div>
+        ),
+        exportValue: (log) => log.admin?.email ?? "System",
+      },
+      {
+        key: "targetType",
+        header: "Target Entity",
+        render: (log) => (
+          <span className="text-xs font-mono text-muted-foreground">
+            {log.targetType ?? "—"}
+          </span>
+        ),
+      },
+      {
+        key: "targetId",
+        header: "Record ID",
+        align: "right",
+        className: "tabular-nums text-right font-mono text-xs",
+        render: (log) => (
+          <span>{log.targetId ?? "—"}</span>
+        ),
+      },
+    ],
+    []
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Institutional Audit Trail"
+        description="Immutable record of administrative operations and database changes."
+      />
+
+      <div className="space-y-4">
+        <DataTableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search operation..."
+          isFiltered={isFiltered}
+          onClearFilters={resetFilters}
+          onExportCsv={() => exportToCsv("audit-logs", columns, auditLogs)}
+          countSummary={
+            total > 0
+              ? `${auditLogs.length} of ${total} records`
+              : undefined
+          }
+          filters={
+            <Select
+              items={{
+                all: "All operations",
+                CREATE: "Creation",
+                UPDATE: "Updates",
+                DELETE: "Deletions",
+              }}
+              value={filters.operation}
+              onValueChange={(val) => setFilter("operation", String(val))}
+            >
+              <SelectTrigger className="h-9 sm:w-44 text-sm" aria-label="Operation filter">
+                <SelectValue placeholder="All operations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All operations</SelectItem>
+                <SelectItem value="CREATE">CREATE</SelectItem>
+                <SelectItem value="UPDATE">UPDATE</SelectItem>
+                <SelectItem value="DELETE">DELETE</SelectItem>
+              </SelectContent>
+            </Select>
+          }
+        />
+
+        <DataTable
+          data={auditLogs}
+          columns={columns}
+          loading={auditQuery.isLoading || auditQuery.isFetching}
+          isError={auditQuery.isError}
+          errorMessage={error?.message}
+          onRetry={auditQuery.refetch}
+          emptyTitle="No audit logs recorded"
+          emptyDescription={
+            isFiltered
+              ? "No records match the selected operation."
+              : "Administrative actions will appear here once executed."
+          }
+          emptyIcon={History}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          pagination={{
+            page,
+            pageSize,
+            total,
+            totalPages,
+            pageSizeOptions: [15, 30, 50],
+            unit: "records",
+            onPageChange: setPage,
+            onPageSizeChange: setPageSize,
+          }}
+        />
+      </div>
+    </div>
+  );
+}

@@ -49,6 +49,17 @@ export const can = {
 
   /** ASSIGNED_COURSE_VIEW */
   viewAssignedCourses: (role: RoleName) => role === "INSTRUCTOR",
+
+  /** DEPARTMENT_MANAGE */
+  manageDepartments: (role: RoleName) =>
+    role === "ADMIN" || role === "SUPER_ADMIN",
+
+  /** STUDENT_MANAGE */
+  manageStudents: (role: RoleName) =>
+    role === "ADMIN" || role === "SUPER_ADMIN",
+
+  /** AUDIT_LOG_VIEW_ALLOWED */
+  viewAuditLogs: (role: RoleName) => role === "SUPER_ADMIN",
 } as const;
 
 export const PERMISSIONS = {
@@ -58,4 +69,6 @@ export const PERMISSIONS = {
   ownEnrollment: "OWN_ENROLLMENT_VIEW",
   assignedCourses: "ASSIGNED_COURSE_VIEW",
   department: "DEPARTMENT_MANAGE",
+  students: "STUDENT_MANAGE",
+  auditLog: "AUDIT_LOG_VIEW_ALLOWED",
 } as const;

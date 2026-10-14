@@ -15,7 +15,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="dark flex min-h-svh flex-col bg-background text-foreground">
+    <div className="flex min-h-svh flex-col bg-background text-foreground">
       <DashboardShell>{children}</DashboardShell>
       <Toaster position="top-right" />
     </div>
