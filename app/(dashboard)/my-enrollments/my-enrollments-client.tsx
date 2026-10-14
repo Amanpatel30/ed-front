@@ -53,7 +53,7 @@ export default function MyEnrollmentsClient() {
     isFiltered,
     queryArgs,
   } = useTableQuery({
-    initialPageSize: 10,
+    initialPageSize: 5,
     initialSortBy: "createdAt",
     initialSortOrder: "desc",
     initialFilters: { status: "all" },

@@ -256,11 +256,131 @@ export interface SelfEnrollmentInput {
   semesterId: string;
 }
 
+export const VALID_GRADES = [
+  "A+",
+  "A",
+  "A-",
+  "B+",
+  "B",
+  "B-",
+  "C+",
+  "C",
+  "C-",
+  "D+",
+  "D",
+  "D-",
+  "F",
+  "P",
+  "NP",
+  "I",
+  "W",
+] as const;
+
+export type ValidGrade = (typeof VALID_GRADES)[number];
+
+export interface CourseRosterEnrollment {
+  id: string;
+  courseId: string;
+  studentId: string;
+  semesterId: string;
+  enrollmentDate: string;
+  status: EnrollmentStatus;
+  grade: string | null;
+  droppedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  student: {
+    id: string;
+    userId: string;
+    studentCode: string;
+    status: string;
+    user?: { id: string; name: string; email: string; status?: string };
+    department?: DepartmentRef;
+  };
+  semester: {
+    id: string;
+    name: string;
+    academicYear: string;
+    status: SemesterStatus;
+    startDate?: string;
+    endDate?: string;
+  };
+}
+
+export interface CourseRosterResponse extends PageMeta {
+  count: number;
+  enrollments: CourseRosterEnrollment[];
+}
+
+export interface RecordGradeInput {
+  courseId?: string;
+  enrollmentId: string;
+  grade: string | null;
+}
+
+export interface RecordGradeResponse {
+  message: string;
+  enrollment: CourseRosterEnrollment;
+}
+
 /* ------------------------------------------------------- courses instructors */
+
+export interface CourseInstructorProfile {
+  id: string;
+  userId: string;
+  departmentId: string;
+  employeeCode: string;
+  designation: string | null;
+  status: string;
+  CourseInstructor?: { assignedAt: string };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+  };
+  department?: DepartmentRef;
+}
+
+export interface CourseInstructorsResponse {
+  count: number;
+  instructors: CourseInstructorProfile[];
+}
 
 export interface AssignmentResponse {
   message: string;
   assignment: { id: string; courseId: string; instructorId: string };
+}
+
+/* -------------------------------------------------------------- instructors */
+
+export interface Instructor {
+  id: string;
+  userId: string;
+  departmentId: string;
+  employeeCode: string;
+  designation: string | null;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+  };
+  department?: DepartmentRef;
+}
+
+export interface InstructorsResponse extends PageMeta {
+  count: number;
+  instructors: Instructor[];
+}
+
+export interface InstructorListParams extends PageParams {
+  departmentId?: string;
+  status?: string;
+  search?: string;
 }
 
 /* ------------------------------------------------------------- departments */
@@ -354,5 +474,6 @@ export interface AuditLogsResponse extends PageMeta {
 
 export interface AuditLogListParams extends PageParams {
   operation?: string;
+  search?: string;
 }
 

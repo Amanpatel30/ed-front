@@ -6,9 +6,11 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 
 import { CourseFormDialog } from "@/components/courses/course-form-dialog";
+import { CourseInstructorsSection } from "@/components/courses/course-instructors-section";
+import { CourseRosterSection } from "@/components/courses/course-roster-section";
 import type { FieldOption } from "@/components/shared/form-fields";
 import { PageHeader } from "@/components/shared/page-header";
-import { QueryState, UnavailableState } from "@/components/shared/query-states";
+import { QueryState } from "@/components/shared/query-states";
 import { CourseActiveBadge } from "@/components/shared/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -123,13 +125,12 @@ export default function CourseDetailClient() {
               </CardContent>
             </Card>
 
-            <div className="mt-6">
-              <UnavailableState
-                title="This course's teaching assignments cannot be read"
-                endpoint="GET /api/courses/:id/instructors"
-                description="The instructor directory exists and the API can assign an instructor to this course, but no endpoint returns a course's own assignments. Without that list an assignment could only be added or removed blind, so the section stays empty."
-              />
-            </div>
+            <CourseInstructorsSection course={course} />
+            <CourseRosterSection
+              courseId={course.id}
+              courseCode={course.code}
+              courseName={course.name}
+            />
           </>
         ) : null}
       </QueryState>

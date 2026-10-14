@@ -5,6 +5,8 @@ import type {
   EnrollmentMutationResponse,
   EnrollmentResponse,
   EnrollmentsResponse,
+  RecordGradeInput,
+  RecordGradeResponse,
   SelfEnrollmentInput,
   UpdateEnrollmentInput,
 } from "@/lib/types";
@@ -121,6 +123,24 @@ export const enrollmentsApi = baseApi.injectEndpoints({
         { type: "Course", id: "LIST" },
       ],
     }),
+
+    /** PATCH /api/enrollments/:id/grade — requires GRADE_CREATE_UPDATE or ENROLLMENT_CREATE_UPDATE_DROP. */
+    recordGrade: build.mutation<RecordGradeResponse, RecordGradeInput>({
+      query: ({ courseId, enrollmentId, grade }) => ({
+        url: courseId
+          ? `/courses/${courseId}/enrollments/${enrollmentId}/grade`
+          : `/enrollments/${enrollmentId}/grade`,
+        method: "PATCH",
+        body: { grade },
+      }),
+      invalidatesTags: (_result, _error, { courseId, enrollmentId }) => [
+        ...(courseId ? [{ type: "Course" as const, id: `${courseId}-roster` }] : []),
+        { type: "Enrollment" as const, id: "ALL" },
+        { type: "Enrollment" as const, id: "MINE" },
+        { type: "Enrollment" as const, id: `ALL-${enrollmentId}` },
+        { type: "Enrollment" as const, id: `MINE-${enrollmentId}` },
+      ],
+    }),
   }),
 });
 
@@ -134,4 +154,5 @@ export const {
   useMyEnrollmentByIdQuery,
   useCreateMyEnrollmentMutation,
   useDropMyEnrollmentMutation,
+  useRecordGradeMutation,
 } = enrollmentsApi;

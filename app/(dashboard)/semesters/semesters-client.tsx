@@ -55,7 +55,7 @@ export default function SemestersClient() {
     isFiltered,
     queryArgs,
   } = useTableQuery({
-    initialPageSize: 10,
+    initialPageSize: 5,
     initialSortBy: "startDate",
     initialSortOrder: "desc",
     initialFilters: { status: "all" },

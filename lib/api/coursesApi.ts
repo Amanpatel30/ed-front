@@ -2,10 +2,14 @@ import { baseApi } from "@/lib/api/baseApi";
 import type {
   AssignedCoursesResponse,
   AssignmentResponse,
+  CourseInstructorsResponse,
   CourseListParams,
   CourseResponse,
+  CourseRosterResponse,
   CoursesResponse,
   CreateCourseInput,
+  RecordGradeInput,
+  RecordGradeResponse,
   UpdateCourseInput,
 } from "@/lib/types";
 
@@ -134,6 +138,40 @@ export const coursesApi = baseApi.injectEndpoints({
         { type: "Course", id: courseId },
       ],
     }),
+
+    /** GET /api/courses/:id/instructors — requires COURSE_ASSIGN. */
+    courseInstructors: build.query<CourseInstructorsResponse, string>({
+      query: (courseId) => `/courses/${courseId}/instructors`,
+      providesTags: (_result, _error, courseId) => [
+        { type: "Course", id: courseId },
+      ],
+    }),
+
+    /** GET /api/courses/:id/enrollments — requires STUDENT_ROSTER_VIEW or ENROLLMENT_VIEW_ALL / ACADEMIC_DATA_MANAGE_ALL. */
+    courseRoster: build.query<CourseRosterResponse, string>({
+      query: (courseId) => `/courses/${courseId}/enrollments`,
+      providesTags: (_result, _error, courseId) => [
+        { type: "Course", id: `${courseId}-roster` },
+      ],
+    }),
+
+    /** PATCH /api/courses/:courseId/enrollments/:enrollmentId/grade — requires GRADE_CREATE_UPDATE or ENROLLMENT_CREATE_UPDATE_DROP. */
+    recordGrade: build.mutation<RecordGradeResponse, RecordGradeInput>({
+      query: ({ courseId, enrollmentId, grade }) => ({
+        url: courseId
+          ? `/courses/${courseId}/enrollments/${enrollmentId}/grade`
+          : `/enrollments/${enrollmentId}/grade`,
+        method: "PATCH",
+        body: { grade },
+      }),
+      invalidatesTags: (_result, _error, { courseId, enrollmentId }) => [
+        ...(courseId ? [{ type: "Course" as const, id: `${courseId}-roster` }] : []),
+        { type: "Enrollment" as const, id: "ALL" },
+        { type: "Enrollment" as const, id: "MINE" },
+        { type: "Enrollment" as const, id: `ALL-${enrollmentId}` },
+        { type: "Enrollment" as const, id: `MINE-${enrollmentId}` },
+      ],
+    }),
   }),
 });
 
@@ -148,4 +186,7 @@ export const {
   useDeleteCourseMutation,
   useAssignInstructorMutation,
   useRemoveInstructorMutation,
+  useCourseInstructorsQuery,
+  useCourseRosterQuery,
+  useRecordGradeMutation,
 } = coursesApi;

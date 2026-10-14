@@ -54,7 +54,7 @@ export default function CoursesClient() {
     isFiltered,
     queryArgs,
   } = useTableQuery({
-    initialPageSize: 10,
+    initialPageSize: 5,
     initialSortBy: "code",
     initialSortOrder: "asc",
     initialFilters: { departmentId: "all" },

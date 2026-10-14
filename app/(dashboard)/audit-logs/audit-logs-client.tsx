@@ -30,23 +30,31 @@ export default function AuditLogsClient() {
     setPage,
     pageSize,
     setPageSize,
+    search,
+    setSearch,
     filters,
     setFilter,
     resetFilters,
     isFiltered,
   } = useTableQuery({
-    initialPageSize: 15,
+    initialPageSize: 5,
     initialFilters: { operation: "all" },
   });
+
+  const trimmedSearch = search.trim();
 
   const auditQuery = useAuditLogsQuery({
     page,
     limit: pageSize,
     operation: filters.operation !== "all" ? filters.operation : undefined,
+    search: trimmedSearch || undefined,
   });
 
   const error = normalizeApiError(auditQuery.error);
-  const auditLogs = auditQuery.data?.auditLogs ?? [];
+  const auditLogs = useMemo(
+    () => auditQuery.data?.auditLogs ?? [],
+    [auditQuery.data?.auditLogs]
+  );
   const total = auditQuery.data?.total ?? auditQuery.data?.count ?? 0;
   const totalPages =
     auditQuery.data?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
@@ -139,6 +147,9 @@ export default function AuditLogsClient() {
 
       <div className="space-y-4">
         <DataTableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search audit trail..."
           isFiltered={isFiltered}
           onClearFilters={resetFilters}
           onExportCsv={() => exportToCsv("audit-logs", columns, auditLogs)}

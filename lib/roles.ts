@@ -60,10 +60,19 @@ export const can = {
 
   /** AUDIT_LOG_VIEW_ALLOWED */
   viewAuditLogs: (role: RoleName) => role === "SUPER_ADMIN",
+
+  /** STUDENT_ROSTER_VIEW or ENROLLMENT_VIEW_ALL */
+  viewRoster: (role: RoleName) =>
+    role === "INSTRUCTOR" || role === "ADMIN" || role === "SUPER_ADMIN",
+
+  /** GRADE_CREATE_UPDATE or ENROLLMENT_CREATE_UPDATE_DROP */
+  recordGrades: (role: RoleName) =>
+    role === "INSTRUCTOR" || role === "ADMIN" || role === "SUPER_ADMIN",
 } as const;
 
 export const PERMISSIONS = {
   catalog: "COURSE_CATALOG_VIEW",
+  courseAssign: "COURSE_ASSIGN",
   semester: "SEMESTER_OPEN_CLOSE",
   enrollment: "ENROLLMENT_VIEW_ALL",
   ownEnrollment: "OWN_ENROLLMENT_VIEW",
@@ -71,4 +80,6 @@ export const PERMISSIONS = {
   department: "DEPARTMENT_MANAGE",
   students: "STUDENT_MANAGE",
   auditLog: "AUDIT_LOG_VIEW_ALLOWED",
+  roster: "STUDENT_ROSTER_VIEW",
+  grades: "GRADE_CREATE_UPDATE",
 } as const;

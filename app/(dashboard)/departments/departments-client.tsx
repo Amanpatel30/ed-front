@@ -26,7 +26,7 @@ export default function DepartmentsClient() {
     resetFilters,
     isFiltered,
   } = useTableQuery({
-    initialPageSize: 20,
+    initialPageSize: 5,
     initialSortBy: "code",
     initialSortOrder: "asc",
   });

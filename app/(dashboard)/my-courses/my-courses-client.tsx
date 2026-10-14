@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { GraduationCap } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { CourseRosterSection } from "@/components/courses/course-roster-section";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   DataTable,
@@ -10,8 +12,8 @@ import {
   type ColumnDef,
   useTableQuery,
 } from "@/components/shared/data-table";
-import { UnavailableState } from "@/components/shared/query-states";
 import { StatCard } from "@/components/shared/stat-card";
+import { Button } from "@/components/ui/button";
 import { normalizeApiError } from "@/lib/api/error";
 import { useAssignedCoursesQuery } from "@/lib/api/coursesApi";
 import { formatDate } from "@/lib/format";
@@ -36,18 +38,28 @@ export default function MyCoursesClient() {
     isFiltered,
     queryArgs,
   } = useTableQuery({
-    initialPageSize: 10,
+    initialPageSize: 5,
     initialSortBy: "code",
     initialSortOrder: "asc",
   });
 
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+
   const coursesQuery = useAssignedCoursesQuery(queryArgs);
 
   const error = normalizeApiError(coursesQuery.error);
-  const courses = coursesQuery.data?.courses ?? [];
+  const courses = useMemo(
+    () => coursesQuery.data?.courses ?? [],
+    [coursesQuery.data?.courses]
+  );
   const total = coursesQuery.data?.total ?? coursesQuery.data?.count ?? 0;
   const totalPages =
     coursesQuery.data?.totalPages ?? Math.max(1, Math.ceil(total / pageSize));
+
+  const activeCourse = useMemo(() => {
+    if (courses.length === 0) return null;
+    return courses.find((c) => c.id === selectedCourseId) ?? courses[0];
+  }, [courses, selectedCourseId]);
 
   const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0);
   const totalCapacity = courses.reduce(
@@ -129,8 +141,33 @@ export default function MyCoursesClient() {
           </span>
         ),
       },
+      {
+        id: "actions",
+        header: "Roster",
+        meta: {
+          width: "130px",
+          align: "right",
+          excludeFromExport: true,
+        },
+        cell: ({ row }) => {
+          const isSelected = activeCourse?.id === row.original.id;
+          return (
+            <div className="text-right">
+              <Button
+                variant={isSelected ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setSelectedCourseId(row.original.id)}
+              >
+                <GraduationCap className="size-3.5 mr-1" aria-hidden />
+                {isSelected ? "Selected" : "View roster"}
+              </Button>
+            </div>
+          );
+        },
+      },
     ],
-    []
+    [activeCourse?.id]
   );
 
   return (
@@ -211,12 +248,16 @@ export default function MyCoursesClient() {
           />
         </div>
 
-        <UnavailableState
-          title="Rosters and grades are not available yet"
-          endpoint="GET /api/courses/:id/enrollments"
-          description="Your role holds the grants for reading a roster and recording grades, but the API has no endpoint for either, so no student list or grade entry is shown here."
-        />
+        {activeCourse ? (
+          <CourseRosterSection
+            key={activeCourse.id}
+            courseId={activeCourse.id}
+            courseCode={activeCourse.code}
+            courseName={activeCourse.name}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
+

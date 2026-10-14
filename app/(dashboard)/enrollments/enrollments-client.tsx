@@ -55,7 +55,7 @@ export default function EnrollmentsPage() {
     isFiltered,
     queryArgs,
   } = useTableQuery({
-    initialPageSize: 15,
+    initialPageSize: 5,
     initialSortBy: "createdAt",
     initialSortOrder: "desc",
     initialFilters: { status: "ACTIVE", semesterId: "all" },
